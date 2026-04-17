@@ -1,0 +1,17 @@
+[02:55:57] ==================================================
+[02:55:57] Blender 桥接脚本启动
+[02:55:57] DLL 加载成功
+[02:55:57] Blend 文件路径: F:\Data\BlenderPerject\Woodbox.blend
+[02:55:57] 共享内存初始化成功
+[02:55:57] 同步对象: 立方体.002
+[02:55:57] 开始实时同步...
+[02:55:57] 提示：在 Blender 中编辑模型，UE 将实时看到变化
+[02:55:57] 后台模式运行
+[02:55:57] 循环异常: 'Object' object has no attribute 'is_updated_data'
+Traceback (most recent call last):
+  File "F:\Data\UE_Project\FlowSolo\FlowAndEditorTool\FlowSolo\Plugins\UEBlender\ThirdParty\ue_bridge_sender.py", line 176, in <module>
+    main_loop()
+  File "F:\Data\UE_Project\FlowSolo\FlowAndEditorTool\FlowSolo\Plugins\UEBlender\ThirdParty\ue_bridge_sender.py", line 169, in main_loop
+    AlterMesh.Free(handle)
+    ^^^^^^^^^
+NameError: name 'AlterMesh' is not defined. Did you mean: 'alter_mesh'?
