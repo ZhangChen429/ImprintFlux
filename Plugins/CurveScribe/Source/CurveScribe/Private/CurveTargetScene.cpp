@@ -1,34 +1,59 @@
 #include "CurveTargetScene.h"
+#include "BezierCurveActor.h"
 #include "Components/SplineComponent.h"
-
+#include "Components/BillboardComponent.h"
 
 UCurveTargetScene::UCurveTargetScene()
 {
 }
 
+void UCurveTargetScene::OnRegister()
+{
+    Super::OnRegister();
+    BindToOwner();
+}
+
+void UCurveTargetScene::BindToOwner()
+{
+    // 避免重复绑定
+    if (DelegateHandle.IsValid())
+    {
+        return;
+    }
+
+    ABezierCurveActor* OwnerActor = Cast<ABezierCurveActor>(GetOwner());
+    if (OwnerActor)
+    {
+        DelegateHandle = OwnerActor->OnControlPointsChanged.AddUObject(this, &UCurveTargetScene::HandleControlPointsChanged);
+    }
+}
+
+void UCurveTargetScene::HandleControlPointsChanged(const TArray<FVector>& InControlPoints)
+{
+    RebuildCurve(InControlPoints);
+}
+
 void UCurveTargetScene::RebuildCurve(const TArray<FVector>& InControlPoints)
 {
-    // 1. 基础检查
-    if (InControlPoints.Num() < 2 || !SplineComponent) return;
+    if (InControlPoints.Num() < 2 || !SplineComponent)
+    {
+        return;
+    }
 
-    // 2. 计算贝塞尔路径点
     TArray<FVector> CurvePoints;
     for (int32 i = 0; i <= CurveResolution; ++i)
     {
-        float T = static_cast<float>(i) / (float)CurveResolution;
+        float T = static_cast<float>(i) / static_cast<float>(CurveResolution);
         CurvePoints.Add(CalculateBezierPoint(InControlPoints, T));
     }
 
-    // 3. 使用世界坐标写入样条线点
     const FVector WorldOrigin = GetOwner() ? GetOwner()->GetActorLocation() : GetComponentLocation();
     SplineComponent->ClearSplinePoints(false);
-
     for (int32 i = 0; i < CurvePoints.Num(); ++i)
     {
         SplineComponent->AddSplinePoint(WorldOrigin + CurvePoints[i], ESplineCoordinateSpace::World, false);
         SplineComponent->SetSplinePointType(i, SplinePointType, false);
     }
-
     SplineComponent->UpdateSpline();
 }
 

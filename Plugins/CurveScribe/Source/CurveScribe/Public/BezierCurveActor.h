@@ -19,9 +19,12 @@ class CURVESCRIBE_API UBezierVisualizerComponent : public UActorComponent
     GENERATED_BODY()
 };
 
+// 控制点变更委托：广播时携带最新的 ControlPoints
+DECLARE_MULTICAST_DELEGATE_OneParam(FOnControlPointsChanged, const TArray<FVector>&);
+
 /**
  * 贝塞尔曲线 Actor
- * 控制点数据由 Actor 管理，样条线生成委托给 UCurveTargetScene
+ * 控制点数据由 Actor 管理，通过委托通知 UCurveTargetScene 刷新样条线
  */
 UCLASS(Meta = (PrioritizeCategories = "BezierActions"))
 class CURVESCRIBE_API ABezierCurveActor : public AActor
@@ -30,6 +33,9 @@ class CURVESCRIBE_API ABezierCurveActor : public AActor
 
 public:
     ABezierCurveActor();
+
+    // ── 控制点变更委托 ──
+    FOnControlPointsChanged OnControlPointsChanged;
 
     // ── 控制点数据 ──
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "BezierActions|BezierActions", meta = (MakeEditWidget = true))
@@ -58,8 +64,8 @@ public:
     UFUNCTION(BlueprintCallable, CallInEditor, Category = "BezierActions|BezierFill", meta = (DisplayName = "根据目标点位生成偏转控制点"))
     void FillPointsRandomToTarget();
 
-    UFUNCTION(BlueprintCallable, Category = "BezierActions|BezierFill")
-    void RebuildCurve();
+    // 广播控制点变更，通知所有绑定的监听者刷新
+    void NotifyControlPointsChanged();
 
     // ── 组件 ──
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Bezier Curve")
@@ -76,6 +82,7 @@ protected:
 
 #if WITH_EDITOR
     virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
+    virtual void PostEditUndo() override;
 #endif
 
     //// 为了保证工具稳定暂时关闭编辑器可视化工具

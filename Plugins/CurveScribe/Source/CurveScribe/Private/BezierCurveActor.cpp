@@ -39,6 +39,11 @@ void ABezierCurveActor::PostInitProperties()
     Super::PostInitProperties();
 }
 
+void ABezierCurveActor::NotifyControlPointsChanged()
+{
+    OnControlPointsChanged.Broadcast(ControlPoints);
+}
+
 #if WITH_EDITOR
 void ABezierCurveActor::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
 {
@@ -65,23 +70,21 @@ void ABezierCurveActor::PostEditChangeProperty(FPropertyChangedEvent& PropertyCh
             }
         }
 
-        RebuildCurve();
+        NotifyControlPointsChanged();
     }
+}
+
+void ABezierCurveActor::PostEditUndo()
+{
+    Super::PostEditUndo();
+    NotifyControlPointsChanged();
 }
 #endif
 
 void ABezierCurveActor::OnConstruction(const FTransform& Transform)
 {
     Super::OnConstruction(Transform);
-    RebuildCurve();
-}
-
-void ABezierCurveActor::RebuildCurve()
-{
-    if (CurveTargetScene)
-    {
-        CurveTargetScene->RebuildCurve(ControlPoints);
-    }
+    NotifyControlPointsChanged();
 }
 
 void ABezierCurveActor::FillPointsToTarget()
@@ -100,6 +103,8 @@ void ABezierCurveActor::FillPointsToTarget()
         return;
     }
 
+    Modify();
+
     const FVector Step = Direction / (FillSegmentCount + 1);
 
     for (int32 i = 1; i <= FillSegmentCount; ++i)
@@ -108,7 +113,7 @@ void ABezierCurveActor::FillPointsToTarget()
     }
 
     CurveTargetScene->BillboardComponentEnd->SetRelativeLocation(ControlPoints.Last() + Step);
-    RebuildCurve();
+    NotifyControlPointsChanged();
 }
 
 void ABezierCurveActor::FillPointsRandomToTarget()
@@ -118,6 +123,8 @@ void ABezierCurveActor::FillPointsRandomToTarget()
     {
         return;
     }
+
+    Modify();
 
     const FVector EndPos = CurveTargetScene->BillboardComponentEnd->GetRelativeLocation();
 
@@ -138,5 +145,5 @@ void ABezierCurveActor::FillPointsRandomToTarget()
     }
 
     ControlPoints.Add(EndPos);
-    RebuildCurve();
+    NotifyControlPointsChanged();
 }

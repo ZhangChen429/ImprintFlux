@@ -129,14 +129,14 @@ bool FBezierCurveVisualizer::HandleInputDelta(FEditorViewportClient* ViewportCli
     if (SelectedActor.IsValid() && SelectedPointIndex != INDEX_NONE
         && SelectedPointIndex < SelectedActor->ControlPoints.Num())
     {
+        // 标记修改，支持撤销（必须在修改数据之前调用）
+        SelectedActor->Modify();
+
         // 更新控制点位置
         SelectedActor->ControlPoints[SelectedPointIndex] += DeltaTranslate;
 
-        // 重建曲线
-        SelectedActor->RebuildCurve();
-
-        // 标记修改，支持撤销
-        SelectedActor->Modify();
+        // 通过委托通知刷新样条线
+        SelectedActor->NotifyControlPointsChanged();
 
         // 刷新视口
         GEditor->RedrawAllViewports();
