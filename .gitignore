@@ -1,0 +1,48 @@
+# ==========================================
+# Unreal Engine 基础忽略项
+# ==========================================
+
+# 忽略二进制文件与构建输出
+Binaries/
+Build/
+DerivedDataCache/
+Intermediate/
+Saved/
+FileOpenOrder/
+
+# 忽略项目生成的工程文件
+*.xcodeproj
+*.xcworkspace
+*.sln
+*.suo
+*.opensdf
+*.sdf
+*.VC.db
+*.VC.opendb
+
+# 忽略本地配置文件
+Config/DefaultEditorPerProjectUserSettings.ini
+Config/DefaultEditorSettings.ini
+LocalBuildProperties.ini
+
+# ==========================================
+# 你的特定要求：忽略主工程 Content
+# ==========================================
+
+# 忽略根目录下的 Content 文件夹
+/Content/
+
+# 如果你只想保留特定的文件夹（例如插件里的 Content），
+# 上方的 /Content/ 只会匹配根目录，不会影响 Plugins 里的 Content。
+
+# ==========================================
+# 其他常见忽略
+# ==========================================
+
+# 忽略损坏的资产或备份
+*.uasset.RECOVERED
+*.umap.RECOVERED
+
+# 忽略系统文件
+.DS_Store
+Thumbs.db
