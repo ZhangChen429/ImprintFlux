@@ -1,7 +1,69 @@
 #include "CurveScribeScene.h"
 #include "CurveScribeActor.h"
+#include "GameFramework/Actor.h"
 #include "Components/SplineComponent.h"
 #include "Components/BillboardComponent.h"
+
+UCurveScribeScene* UCurveScribeScene::CreateAndAttach(
+    AActor* Owner,
+    USceneComponent* AttachTo,
+    const FCurveScribeSubcomponentNames& Names)
+{
+    if (!Owner)
+    {
+        return nullptr;
+    }
+
+    UCurveScribeScene* Scene = Owner->CreateDefaultSubobject<UCurveScribeScene>(Names.Scene);
+    if (!Scene)
+    {
+        return nullptr;
+    }
+    if (AttachTo)
+    {
+        Scene->SetupAttachment(AttachTo);
+    }
+
+    // 注意：子组件的 Outer 必须是 Owner（Actor），而非 Scene；否则注册阶段不进入 Actor 组件表，transform 不传播
+    auto MakeBillboard = [Owner, Scene](FName InName) -> UBillboardComponent*
+    {
+        UBillboardComponent* B = Owner->CreateDefaultSubobject<UBillboardComponent>(InName);
+        if (B) { B->SetupAttachment(Scene); }
+        return B;
+    };
+
+    auto MakeSpline = [Owner, Scene](FName InName, FLinearColor Color) -> USplineComponent*
+    {
+        USplineComponent* S = Owner->CreateDefaultSubobject<USplineComponent>(InName);
+        if (S)
+        {
+            S->SetupAttachment(Scene);
+            S->EditorUnselectedSplineSegmentColor = Color;
+            S->EditorSelectedSplineSegmentColor   = Color;
+        }
+        return S;
+    };
+
+    const FLinearColor WallColor  = FLinearColor(1.0f, 0.85f, 0.0f); // 黄 - 走廊左右
+    const FLinearColor RandAColor = FLinearColor(1.0f, 0.2f,  0.2f); // 红 - 随机 A
+    const FLinearColor RandBColor = FLinearColor(0.2f, 0.5f,  1.0f); // 蓝 - 随机 B
+
+    Scene->BillboardComponentBegin = MakeBillboard(Names.BillboardBegin);
+    Scene->BillboardComponentEnd   = MakeBillboard(Names.BillboardEnd);
+
+    Scene->SplineComponent = Owner->CreateDefaultSubobject<USplineComponent>(Names.Spline);
+    if (Scene->SplineComponent)
+    {
+        Scene->SplineComponent->SetupAttachment(Scene);
+    }
+
+    Scene->SplineComponentLeft    = MakeSpline(Names.SplineLeft,    WallColor);
+    Scene->SplineComponentRight   = MakeSpline(Names.SplineRight,   WallColor);
+    Scene->SplineComponentRandomA = MakeSpline(Names.SplineRandomA, RandAColor);
+    Scene->SplineComponentRandomB = MakeSpline(Names.SplineRandomB, RandBColor);
+
+    return Scene;
+}
 
 UCurveScribeScene::UCurveScribeScene()
 {
@@ -9,9 +71,9 @@ UCurveScribeScene::UCurveScribeScene()
     PrimaryComponentTick.bCanEverTick = true;
     PrimaryComponentTick.bStartWithTickEnabled = true;
 
-    // 如果你想在编辑器里没点运行时也能看到 Debug 线
+
 #if WITH_EDITOR
-    bTickInEditor = true; 
+    bTickInEditor = true;
 #endif
 }
 

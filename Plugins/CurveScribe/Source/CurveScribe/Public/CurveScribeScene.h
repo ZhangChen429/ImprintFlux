@@ -12,6 +12,22 @@ class UBillboardComponent;
 DECLARE_MULTICAST_DELEGATE_OneParam(FOnShowDebugCirclesChanged, bool);
 
 /**
+ * CreateAndAttach 使用的子组件命名配置。
+ * 默认值保持与历史 Actor 一致；同一 Actor 需挂多套时请自定义以避免 FName 冲突。
+ */
+struct CURVESCRIBE_API FCurveScribeSubcomponentNames
+{
+    FName Scene          = TEXT("CurveTargetScene");
+    FName BillboardBegin = TEXT("BillboardBeginComponent");
+    FName BillboardEnd   = TEXT("BillboardEndComponent");
+    FName Spline         = TEXT("SplineComponent");
+    FName SplineLeft     = TEXT("SplineComponentLeft");
+    FName SplineRight    = TEXT("SplineComponentRight");
+    FName SplineRandomA  = TEXT("SplineComponentRandomA");
+    FName SplineRandomB  = TEXT("SplineComponentRandomB");
+};
+
+/**
  * 曲线目标组件 —— 只负责根据控制点生成样条线
  * 通过绑定 Actor 的 OnControlPointsChanged 委托自动刷新
  */
@@ -22,11 +38,22 @@ class CURVESCRIBE_API UCurveScribeScene : public USceneComponent
 
 public:
     UCurveScribeScene();
-    
+
+    /**
+     * 一步创建并装配 Scene + 全部子 SceneComponent。
+     * 必须在宿主 Actor 的构造函数中调用（否则 CreateDefaultSubobject 会断言失败）。
+     * @param Owner     宿主 Actor（当前正在被构造）
+     * @param AttachTo  Scene 要附加到的父级（通常是 Owner->RootComponent）
+     */
+
+    static UCurveScribeScene* CreateAndAttach(
+        AActor* Owner,
+        USceneComponent* AttachTo,
+        const FCurveScribeSubcomponentNames& Names = FCurveScribeSubcomponentNames());
+
     virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
     
     // ── Debug  ──
-
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Debug", meta = (DisplayName = "显示 Debug 圆环"))
     bool bShowDebugCircles = true;
@@ -59,6 +86,9 @@ public:
     float RandomOffsetMinRadius = 10.f;
 
     // ── 子组件 ──
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Bezier Curve")
+    TObjectPtr<UBillboardComponent> BillboardComponentBegin;
+
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Bezier Curve")
     TObjectPtr<UBillboardComponent> BillboardComponentEnd;
 

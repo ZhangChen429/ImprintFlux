@@ -57,12 +57,21 @@ public:
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "BezierActions|BezierFill", meta = (DisplayName = "步进距离"))
     float TargetStepDistance = 20.0f;
 
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "BezierActions|BezierFill", meta = (DisplayName = "控制点随机偏移最小半径", ClampMin = "0"))
+    float ControlPointRandomOffsetMin = 0.f;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "BezierActions|BezierFill", meta = (DisplayName = "控制点随机偏移最大半径", ClampMin = "0"))
+    float ControlPointRandomOffsetMax = 50.f;
+
     // ── 操作函数 ──
     UFUNCTION(BlueprintCallable, CallInEditor, Category = "BezierActions|BezierFill", meta = (DisplayName = "根据目标点位生成沿线控制点"))
     void FillPointsToTarget();
 
     UFUNCTION(BlueprintCallable, CallInEditor, Category = "BezierActions|BezierFill", meta = (DisplayName = "根据目标点位生成偏转控制点"))
     void FillPointsRandomToTarget();
+
+    UFUNCTION(BlueprintCallable, CallInEditor, Category = "BezierActions|BezierFill", meta = (DisplayName = "对所有控制点施加随机偏移"))
+    void RandomOffsetControlPoints();
     
     // ── 数据资产引用 ──
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "BezierActions|BezierData", meta = (DisplayName = "曲线数据资产"))
@@ -77,6 +86,16 @@ public:
     // 广播控制点变更，通知所有绑定的监听者刷新
     void NotifyControlPointsChanged();
 
+    // ── Debug：控制点朝向圆环 ──
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "BezierActions|Debug", meta = (DisplayName = "显示控制点圆环"))
+    bool bShowControlPointCircles = false;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "BezierActions|Debug", meta = (DisplayName = "控制点圆环半径", ClampMin = "0"))
+    float ControlPointCircleRadius = 30.f;
+
+    UPROPERTY(EditAnywhere, Category = "BezierActions|Debug", meta = (DisplayName = "控制点圆环颜色"))
+    FColor ControlPointCircleColor = FColor::Green;
+
     // ── 组件 ──
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Bezier Curve")
     TObjectPtr<UCurveScribeScene> CurveTargetScene;
@@ -85,10 +104,12 @@ protected:
 
     virtual void OnConstruction(const FTransform& Transform) override;
 
-    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Bezier Curve")
-    TObjectPtr<UBillboardComponent> BillboardComponentBegin;
-
     virtual void PostInitProperties() override;
+
+    virtual void Tick(float DeltaTime) override;
+
+    // 在编辑器视口中（非 PIE）也让 Actor Tick，用于持续绘制 Debug 圆环
+    virtual bool ShouldTickIfViewportsOnly() const override { return true; }
 
 #if WITH_EDITOR
     virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;

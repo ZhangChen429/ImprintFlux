@@ -1,49 +1,17 @@
 #include "CurveScribeActor.h"
 #include "CurveScribeScene.h"
-#include "Components/SplineComponent.h"
 #include "Components/BillboardComponent.h"
+#include "DrawDebugHelpers.h"
 
 ACurveScribeActor::ACurveScribeActor()
 {
-    PrimaryActorTick.bCanEverTick = false;
+    PrimaryActorTick.bCanEverTick = true;
+    PrimaryActorTick.bStartWithTickEnabled = true;
     bRunConstructionScriptOnDrag = true;
-
-    
     RootComponent = CreateDefaultSubobject<USceneComponent>(TEXT("SceneRoot"));
 
-    BillboardComponentBegin = CreateDefaultSubobject<UBillboardComponent>(TEXT("BillboardBeginComponent"));
-    BillboardComponentBegin->SetupAttachment(RootComponent);
-
-    // 曲线目标子树
-    CurveTargetScene = CreateDefaultSubobject<UCurveScribeScene>(TEXT("CurveTargetScene"));
-    CurveTargetScene->SetupAttachment(RootComponent);
-
-    // 子组件在 Actor 中创建，挂到 CurveTargetScene 下
-    CurveTargetScene->BillboardComponentEnd = CreateDefaultSubobject<UBillboardComponent>(TEXT("BillboardEndComponent"));
-    CurveTargetScene->BillboardComponentEnd->SetupAttachment(CurveTargetScene);
-
-    CurveTargetScene->SplineComponent = CreateDefaultSubobject<USplineComponent>(TEXT("SplineComponent"));
-    CurveTargetScene->SplineComponent->SetupAttachment(CurveTargetScene);
-
-    CurveTargetScene->SplineComponentLeft = CreateDefaultSubobject<USplineComponent>(TEXT("SplineComponentLeft"));
-    CurveTargetScene->SplineComponentLeft->SetupAttachment(CurveTargetScene);
-    CurveTargetScene->SplineComponentLeft->EditorUnselectedSplineSegmentColor  = FLinearColor(1.0f, 0.85f, 0.0f); // 黄 - 左墙
-    CurveTargetScene->SplineComponentLeft->EditorSelectedSplineSegmentColor    = FLinearColor(1.0f, 0.85f, 0.0f);
-
-    CurveTargetScene->SplineComponentRight = CreateDefaultSubobject<USplineComponent>(TEXT("SplineComponentRight"));
-    CurveTargetScene->SplineComponentRight->SetupAttachment(CurveTargetScene);
-    CurveTargetScene->SplineComponentRight->EditorUnselectedSplineSegmentColor = FLinearColor(1.0f, 0.85f, 0.0f); // 黄 - 右墙
-    CurveTargetScene->SplineComponentRight->EditorSelectedSplineSegmentColor   = FLinearColor(1.0f, 0.85f, 0.0f);
-
-    CurveTargetScene->SplineComponentRandomA = CreateDefaultSubobject<USplineComponent>(TEXT("SplineComponentRandomA"));
-    CurveTargetScene->SplineComponentRandomA->SetupAttachment(CurveTargetScene);
-    CurveTargetScene->SplineComponentRandomA->EditorUnselectedSplineSegmentColor = FLinearColor(1.0f, 0.2f, 0.2f); // 红 - 随机 A
-    CurveTargetScene->SplineComponentRandomA->EditorSelectedSplineSegmentColor   = FLinearColor(1.0f, 0.2f, 0.2f);
-
-    CurveTargetScene->SplineComponentRandomB = CreateDefaultSubobject<USplineComponent>(TEXT("SplineComponentRandomB"));
-    CurveTargetScene->SplineComponentRandomB->SetupAttachment(CurveTargetScene);
-    CurveTargetScene->SplineComponentRandomB->EditorUnselectedSplineSegmentColor = FLinearColor(0.2f, 0.5f, 1.0f); // 蓝 - 随机 B
-    CurveTargetScene->SplineComponentRandomB->EditorSelectedSplineSegmentColor   = FLinearColor(0.2f, 0.5f, 1.0f);
+    // 一行完成 Scene + 全部子组件的创建与装配
+    CurveTargetScene = UCurveScribeScene::CreateAndAttach(this, RootComponent);
 
     // 控制点初始数据
     FillSegmentCount = 4;
@@ -52,8 +20,11 @@ ACurveScribeActor::ACurveScribeActor()
     ControlPoints.Add(FVector(200.0f, -100.0f, 0.0f));
     ControlPoints.Add(FVector(300.0f, 0.0f, 0.0f));
 
-    CurveTargetScene->BillboardComponentEnd->SetRelativeLocation(
-        ControlPoints.Last() + FVector(100.0f, 0.0f, 0.0f));
+    if (CurveTargetScene && CurveTargetScene->BillboardComponentEnd)
+    {
+        CurveTargetScene->BillboardComponentEnd->SetRelativeLocation(
+            ControlPoints.Last() + FVector(100.0f, 0.0f, 0.0f));
+    }
 }
 
 void ACurveScribeActor::PostInitProperties()
@@ -165,6 +136,73 @@ void ACurveScribeActor::OnConstruction(const FTransform& Transform)
     NotifyControlPointsChanged();
 }
 
+void ACurveScribeActor::Tick(float DeltaTime)
+{
+    Super::Tick(DeltaTime);
+
+    if (!bShowControlPointCircles
+        || ControlPoints.Num() == 0
+        || ControlPointCircleRadius <= KINDA_SMALL_NUMBER)
+    {
+        return;
+    }
+
+    const FTransform ActorXform = GetActorTransform();
+    const int32 Last = ControlPoints.Num() - 1;
+
+    for (int32 i = 0; i <= Last; ++i)
+    {
+        const FVector CenterW = ActorXform.TransformPosition(ControlPoints[i]);
+
+        // 切向：朝向下一个控制点；末点沿前一段方向
+        FVector TangentLocal;
+        if (i < Last)
+        {
+            TangentLocal = ControlPoints[i + 1] - ControlPoints[i];
+        }
+        else if (Last > 0)
+        {
+            TangentLocal = ControlPoints[i] - ControlPoints[i - 1];
+        }
+        else
+        {
+            TangentLocal = FVector::ForwardVector;
+        }
+
+        FVector Tangent = ActorXform.TransformVector(TangentLocal).GetSafeNormal();
+        if (Tangent.IsNearlyZero())
+        {
+            Tangent = FVector::ForwardVector;
+        }
+
+        // 圆环所在法平面的两个基向量（与 Tangent 正交）
+        FVector YAxis = FVector::CrossProduct(Tangent, FVector::UpVector).GetSafeNormal();
+        if (YAxis.IsNearlyZero())
+        {
+            YAxis = FVector::CrossProduct(Tangent, FVector::ForwardVector).GetSafeNormal();
+            if (YAxis.IsNearlyZero())
+            {
+                YAxis = FVector::RightVector;
+            }
+        }
+        const FVector ZAxis = FVector::CrossProduct(Tangent, YAxis).GetSafeNormal();
+
+        DrawDebugCircle(
+            GetWorld(),
+            CenterW,
+            ControlPointCircleRadius,
+            32,
+            ControlPointCircleColor,
+            false,
+            -1.f,
+            0,
+            1.5f,
+            YAxis,
+            ZAxis,
+            false);
+    }
+}
+
 void ACurveScribeActor::FillPointsToTarget()
 {
     if (ControlPoints.Num() == 0 || !CurveTargetScene || !CurveTargetScene->BillboardComponentEnd || FillSegmentCount <= 0)
@@ -223,5 +261,50 @@ void ACurveScribeActor::FillPointsRandomToTarget()
     }
 
     ControlPoints.Add(EndPos);
+    NotifyControlPointsChanged();
+}
+
+void ACurveScribeActor::RandomOffsetControlPoints()
+{
+    if (ControlPoints.Num() < 3 || ControlPointRandomOffsetMax <= KINDA_SMALL_NUMBER)
+    {
+        return;
+    }
+
+    Modify();
+
+    const int32 Last = ControlPoints.Num() - 1;
+    const float MinR = FMath::Clamp(ControlPointRandomOffsetMin, 0.f, ControlPointRandomOffsetMax);
+
+    // 首末端保持不动，保证起止位置不变
+    for (int32 i = 1; i < Last; ++i)
+    {
+        // 切向：中心差分
+        FVector Tangent = (ControlPoints[i + 1] - ControlPoints[i - 1]).GetSafeNormal();
+        if (Tangent.IsNearlyZero())
+        {
+            Tangent = FVector::ForwardVector;
+        }
+
+        // 法平面基向量（与 Tangent 正交）
+        FVector RightDir = FVector::CrossProduct(Tangent, FVector::UpVector).GetSafeNormal();
+        if (RightDir.IsNearlyZero())
+        {
+            RightDir = FVector::CrossProduct(Tangent, FVector::ForwardVector).GetSafeNormal();
+            if (RightDir.IsNearlyZero())
+            {
+                RightDir = FVector::RightVector;
+            }
+        }
+        const FVector NormalUp = FVector::CrossProduct(RightDir, Tangent).GetSafeNormal();
+
+        // 法平面极坐标：角度 [0, 2π)、半径 [Min, Max]
+        const float Angle  = FMath::FRandRange(0.f, 2.f * PI);
+        const float Mag    = FMath::FRandRange(MinR, ControlPointRandomOffsetMax);
+        const FVector OffsetDir = FMath::Cos(Angle) * RightDir + FMath::Sin(Angle) * NormalUp;
+
+        ControlPoints[i] += OffsetDir * Mag;
+    }
+
     NotifyControlPointsChanged();
 }
