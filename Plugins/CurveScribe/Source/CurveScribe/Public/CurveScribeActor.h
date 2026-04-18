@@ -57,6 +57,13 @@ public:
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "BezierActions|BezierFill", meta = (DisplayName = "步进距离"))
     float TargetStepDistance = 20.0f;
 
+    // ── 操作函数 ──
+    UFUNCTION(BlueprintCallable, CallInEditor, Category = "BezierActions|BezierFill", meta = (DisplayName = "根据目标点位生成沿线控制点"))
+    void FillPointsToTarget();
+
+    UFUNCTION(BlueprintCallable, CallInEditor, Category = "BezierActions|BezierFill", meta = (DisplayName = "根据目标点位生成偏转控制点"))
+    void FillPointsRandomToTarget();
+    
     // ── 数据资产引用 ──
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "BezierActions|BezierData", meta = (DisplayName = "曲线数据资产"))
     TObjectPtr<UCurveScribeDataAsset> CurveData;
@@ -66,14 +73,7 @@ public:
 
     UFUNCTION(BlueprintCallable, CallInEditor, Category = "BezierActions|BezierData", meta = (DisplayName = "保存到数据资产"))
     void SaveToDataAsset();
-
-    // ── 操作函数 ──
-    UFUNCTION(BlueprintCallable, CallInEditor, Category = "BezierActions|BezierFill", meta = (DisplayName = "根据目标点位生成沿线控制点"))
-    void FillPointsToTarget();
-
-    UFUNCTION(BlueprintCallable, CallInEditor, Category = "BezierActions|BezierFill", meta = (DisplayName = "根据目标点位生成偏转控制点"))
-    void FillPointsRandomToTarget();
-
+    
     // 广播控制点变更，通知所有绑定的监听者刷新
     void NotifyControlPointsChanged();
 
