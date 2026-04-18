@@ -20,31 +20,53 @@ void UCurveScribeScene::TickComponent(float DeltaTime, ELevelTick TickType,
 {
     Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
 
-    // 1. 确保 Spline 存在
-    if (!SplineComponent) return;
+    // 1. 确保 Spline 存在且 Debug 开关打开
+    if (!SplineComponent || !bShowDebugCircles) return;
 
     // 2. 遍历所有样条线点
     const int32 NumPoints = SplineComponent->GetNumberOfSplinePoints();
+    const float ClampedInnerR = FMath::Clamp(RandomOffsetMinRadius, 0.f, CorridorRadius);
     for (int32 i = 0; i < NumPoints; ++i)
     {
         FVector PointLocation = SplineComponent->GetLocationAtSplinePoint(i, ESplineCoordinateSpace::World);
         FQuat PointRotation = SplineComponent->GetQuaternionAtSplinePoint(i, ESplineCoordinateSpace::World);
         FVector RightAxis = PointRotation.GetAxisY();
         FVector UpAxis = PointRotation.GetAxisZ();
+
+        // 外圈：走廊半径
         DrawDebugCircle(
             GetWorld(),
             PointLocation,
-            DebugCircleRadius,
+            CorridorRadius,
             32,
             DebugColor,
             false,
-            -1.f, // 生命周期为 -1 表示仅存在于当前帧（配合 Tick）
+            -1.f,
             0,
             1.5f,
-            RightAxis,           // 轴1：决定圆环平面
-            UpAxis,              // 轴2：决定圆环平面
-            false             // 是否绘制坐标轴
+            RightAxis,
+            UpAxis,
+            false
         );
+
+        // 内圈：随机最小偏移半径
+        if (ClampedInnerR > KINDA_SMALL_NUMBER)
+        {
+            DrawDebugCircle(
+                GetWorld(),
+                PointLocation,
+                ClampedInnerR,
+                32,
+                DebugInnerColor,
+                false,
+                -1.f,
+                0,
+                1.5f,
+                RightAxis,
+                UpAxis,
+                false
+            );
+        }
     }
 }
 
@@ -54,6 +76,32 @@ void UCurveScribeScene::OnRegister()
     Super::OnRegister();
     BindToOwner();
 }
+
+void UCurveScribeScene::SetShowDebugCircles(bool bNewShow)
+{
+    if (bShowDebugCircles == bNewShow)
+    {
+        return;
+    }
+    bShowDebugCircles = bNewShow;
+    OnShowDebugCirclesChanged.Broadcast(bShowDebugCircles);
+}
+
+#if WITH_EDITOR
+void UCurveScribeScene::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
+{
+    Super::PostEditChangeProperty(PropertyChangedEvent);
+
+    const FName PropertyName = (PropertyChangedEvent.Property != nullptr)
+        ? PropertyChangedEvent.Property->GetFName()
+        : NAME_None;
+
+    if (PropertyName == GET_MEMBER_NAME_CHECKED(UCurveScribeScene, bShowDebugCircles))
+    {
+        OnShowDebugCirclesChanged.Broadcast(bShowDebugCircles);
+    }
+}
+#endif
 
 void UCurveScribeScene::BindToOwner()
 {
@@ -97,6 +145,116 @@ void UCurveScribeScene::RebuildCurve(const TArray<FVector>& InControlPoints)
         SplineComponent->SetSplinePointType(i, SplinePointType, false);
     }
     SplineComponent->UpdateSpline();
+
+    RebuildCorridor(CurvePoints, WorldOrigin);
+    RebuildRandomInCorridor(InControlPoints, WorldOrigin);
+}
+
+void UCurveScribeScene::RebuildCorridor(const TArray<FVector>& InCurvePoints, const FVector& WorldOrigin)
+{
+    if (InCurvePoints.Num() < 2 || !SplineComponentLeft || !SplineComponentRight || CorridorRadius <= KINDA_SMALL_NUMBER)
+    {
+        if (SplineComponentLeft)  { SplineComponentLeft->ClearSplinePoints(true); }
+        if (SplineComponentRight) { SplineComponentRight->ClearSplinePoints(true); }
+        return;
+    }
+
+    SplineComponentLeft->ClearSplinePoints(false);
+    SplineComponentRight->ClearSplinePoints(false);
+
+    const int32 Last = InCurvePoints.Num() - 1;
+    for (int32 i = 0; i <= Last; ++i)
+    {
+        // 中心差分求切向，端点退化为前向/后向差分
+        FVector Tangent;
+        if (i == 0)           { Tangent = InCurvePoints[1] - InCurvePoints[0]; }
+        else if (i == Last)   { Tangent = InCurvePoints[Last] - InCurvePoints[Last - 1]; }
+        else                  { Tangent = InCurvePoints[i + 1] - InCurvePoints[i - 1]; }
+        Tangent = Tangent.GetSafeNormal();
+
+        // 以世界 Z 为参考 Up，Right = T × Z；若切向接近竖直则退化用世界 X
+        FVector RightDir = FVector::CrossProduct(Tangent, FVector::UpVector).GetSafeNormal();
+        if (RightDir.IsNearlyZero())
+        {
+            RightDir = FVector::CrossProduct(Tangent, FVector::ForwardVector).GetSafeNormal();
+            if (RightDir.IsNearlyZero()) { RightDir = FVector::RightVector; }
+        }
+
+        const FVector CenterWorld = WorldOrigin + InCurvePoints[i];
+        const FVector LeftWorld   = CenterWorld - RightDir * CorridorRadius;
+        const FVector RightWorld  = CenterWorld + RightDir * CorridorRadius;
+
+        SplineComponentLeft->AddSplinePoint(LeftWorld,   ESplineCoordinateSpace::World, false);
+        SplineComponentRight->AddSplinePoint(RightWorld, ESplineCoordinateSpace::World, false);
+        SplineComponentLeft->SetSplinePointType(i,  SplinePointType, false);
+        SplineComponentRight->SetSplinePointType(i, SplinePointType, false);
+    }
+
+    SplineComponentLeft->UpdateSpline();
+    SplineComponentRight->UpdateSpline();
+}
+
+void UCurveScribeScene::RebuildRandomInCorridor(const TArray<FVector>& InControlPoints, const FVector& WorldOrigin)
+{
+    auto BuildOne = [this, &InControlPoints, &WorldOrigin](USplineComponent* Spline)
+    {
+        if (!Spline) { return; }
+        Spline->ClearSplinePoints(false);
+
+        if (InControlPoints.Num() < 2 || CorridorRadius <= KINDA_SMALL_NUMBER)
+        {
+            Spline->UpdateSpline();
+            return;
+        }
+
+        // 对每个贝塞尔控制点做随机左右偏移（首末端保持不动，保证起止点一致）
+        const int32 Last = InControlPoints.Num() - 1;
+        TArray<FVector> OffsetCPs;
+        OffsetCPs.Reserve(InControlPoints.Num());
+        for (int32 i = 0; i <= Last; ++i)
+        {
+            if (i == 0 || i == Last)
+            {
+                OffsetCPs.Add(InControlPoints[i]);
+                continue;
+            }
+
+            FVector Tangent;
+            if (i == 0)         { Tangent = InControlPoints[1] - InControlPoints[0]; }
+            else if (i == Last) { Tangent = InControlPoints[Last] - InControlPoints[Last - 1]; }
+            else                { Tangent = InControlPoints[i + 1] - InControlPoints[i - 1]; }
+            Tangent = Tangent.GetSafeNormal();
+
+            FVector RightDir = FVector::CrossProduct(Tangent, FVector::UpVector).GetSafeNormal();
+            if (RightDir.IsNearlyZero())
+            {
+                RightDir = FVector::CrossProduct(Tangent, FVector::ForwardVector).GetSafeNormal();
+                if (RightDir.IsNearlyZero()) { RightDir = FVector::RightVector; }
+            }
+            // 法平面的第二个基向量（与 Tangent、Right 正交）
+            const FVector NormalUp = FVector::CrossProduct(RightDir, Tangent).GetSafeNormal();
+
+            // 在法平面内随机取方向和幅值：角度 [0, 2π)、幅值 [MinR, CorridorRadius]
+            const float MinR = FMath::Clamp(RandomOffsetMinRadius, 0.f, CorridorRadius);
+            const float Angle = FMath::FRandRange(0.f, 2.f * PI);
+            const float RandMag = FMath::FRandRange(MinR, CorridorRadius);
+            const FVector OffsetDir = FMath::Cos(Angle) * RightDir + FMath::Sin(Angle) * NormalUp;
+            OffsetCPs.Add(InControlPoints[i] + OffsetDir * RandMag);
+        }
+
+        // 用偏移后的控制点做贝塞尔采样
+        for (int32 i = 0; i <= CurveResolution; ++i)
+        {
+            const float T = static_cast<float>(i) / static_cast<float>(CurveResolution);
+            const FVector P = CalculateBezierPoint(OffsetCPs, T);
+            Spline->AddSplinePoint(WorldOrigin + P, ESplineCoordinateSpace::World, false);
+            Spline->SetSplinePointType(i, SplinePointType, false);
+        }
+        Spline->UpdateSpline();
+    };
+
+    BuildOne(SplineComponentRandomA);
+    BuildOne(SplineComponentRandomB);
 }
 
 FVector UCurveScribeScene::CalculateBezierPoint(const TArray<FVector>& Points, float T) const

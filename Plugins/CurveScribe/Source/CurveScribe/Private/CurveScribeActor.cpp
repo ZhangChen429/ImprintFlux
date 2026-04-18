@@ -25,6 +25,26 @@ ACurveScribeActor::ACurveScribeActor()
     CurveTargetScene->SplineComponent = CreateDefaultSubobject<USplineComponent>(TEXT("SplineComponent"));
     CurveTargetScene->SplineComponent->SetupAttachment(CurveTargetScene);
 
+    CurveTargetScene->SplineComponentLeft = CreateDefaultSubobject<USplineComponent>(TEXT("SplineComponentLeft"));
+    CurveTargetScene->SplineComponentLeft->SetupAttachment(CurveTargetScene);
+    CurveTargetScene->SplineComponentLeft->EditorUnselectedSplineSegmentColor  = FLinearColor(1.0f, 0.85f, 0.0f); // 黄 - 左墙
+    CurveTargetScene->SplineComponentLeft->EditorSelectedSplineSegmentColor    = FLinearColor(1.0f, 0.85f, 0.0f);
+
+    CurveTargetScene->SplineComponentRight = CreateDefaultSubobject<USplineComponent>(TEXT("SplineComponentRight"));
+    CurveTargetScene->SplineComponentRight->SetupAttachment(CurveTargetScene);
+    CurveTargetScene->SplineComponentRight->EditorUnselectedSplineSegmentColor = FLinearColor(1.0f, 0.85f, 0.0f); // 黄 - 右墙
+    CurveTargetScene->SplineComponentRight->EditorSelectedSplineSegmentColor   = FLinearColor(1.0f, 0.85f, 0.0f);
+
+    CurveTargetScene->SplineComponentRandomA = CreateDefaultSubobject<USplineComponent>(TEXT("SplineComponentRandomA"));
+    CurveTargetScene->SplineComponentRandomA->SetupAttachment(CurveTargetScene);
+    CurveTargetScene->SplineComponentRandomA->EditorUnselectedSplineSegmentColor = FLinearColor(1.0f, 0.2f, 0.2f); // 红 - 随机 A
+    CurveTargetScene->SplineComponentRandomA->EditorSelectedSplineSegmentColor   = FLinearColor(1.0f, 0.2f, 0.2f);
+
+    CurveTargetScene->SplineComponentRandomB = CreateDefaultSubobject<USplineComponent>(TEXT("SplineComponentRandomB"));
+    CurveTargetScene->SplineComponentRandomB->SetupAttachment(CurveTargetScene);
+    CurveTargetScene->SplineComponentRandomB->EditorUnselectedSplineSegmentColor = FLinearColor(0.2f, 0.5f, 1.0f); // 蓝 - 随机 B
+    CurveTargetScene->SplineComponentRandomB->EditorSelectedSplineSegmentColor   = FLinearColor(0.2f, 0.5f, 1.0f);
+
     // 控制点初始数据
     FillSegmentCount = 4;
     ControlPoints.Add(FVector(0.0f, 0.0f, 0.0f));
@@ -64,7 +84,8 @@ void ACurveScribeActor::LoadFromDataAsset()
     {
         CurveTargetScene->CurveResolution = CurveData->CurveResolution;
         CurveTargetScene->SplinePointType = CurveData->SplinePointType;
-        CurveTargetScene->DebugCircleRadius = CurveData->DebugCircleRadius;
+        CurveTargetScene->CorridorRadius = CurveData->CorridorRadius;
+        CurveTargetScene->RandomOffsetMinRadius = CurveData->RandomOffsetMinRadius;
 
         if (CurveTargetScene->BillboardComponentEnd && ControlPoints.Num() > 0)
         {
@@ -94,7 +115,8 @@ void ACurveScribeActor::SaveToDataAsset()
     {
         CurveData->CurveResolution = CurveTargetScene->CurveResolution;
         CurveData->SplinePointType = CurveTargetScene->SplinePointType;
-        CurveData->DebugCircleRadius = CurveTargetScene->DebugCircleRadius;
+        CurveData->CorridorRadius = CurveTargetScene->CorridorRadius;
+        CurveData->RandomOffsetMinRadius = CurveTargetScene->RandomOffsetMinRadius;
     }
 
     CurveData->MarkPackageDirty();

@@ -35,9 +35,15 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Bezier", DisplayName = "步进长度")
 	float TargetStepDistance = 20.0f;
 
-	// ── Debug ──
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Bezier", meta = (ClampMin = "0", DisplayName = "Debug 圆管半径"))
-	float DebugCircleRadius = 20.0f;
+	// ── 安全走廊 ──
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Bezier", meta = (ClampMin = "0", DisplayName = "走廊半径"))
+	float CorridorRadius = 50.0f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Bezier", meta = (ClampMin = "0", DisplayName = "随机最小偏移半径"))
+	float RandomOffsetMinRadius = 10.0f;
+
+
+
 
 #if WITH_EDITOR
 	DECLARE_MULTICAST_DELEGATE(FOnBezierDataChanged);
