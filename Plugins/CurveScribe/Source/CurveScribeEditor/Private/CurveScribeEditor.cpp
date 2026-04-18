@@ -13,7 +13,7 @@
 #include "Widgets/Notifications/SNotificationList.h"
 #include "UnrealEdGlobals.h"
 #include "Editor/UnrealEdEngine.h"
-#include "BezierCurveActor.h"
+#include "CurveScribeActor.h"
 #include "Widgets/Input/SSpinBox.h"
 #include "Widgets/Input/SButton.h"
 #include "Widgets/Text/STextBlock.h"

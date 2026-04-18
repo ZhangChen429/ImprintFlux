@@ -1,6 +1,6 @@
 #include "Editor/BezierCurveVisualizer.h"
-#include "BezierCurveActor.h"
-#include "CurveTargetScene.h"
+#include "CurveScribeActor.h"
+#include "CurveScribeScene.h"
 #include "Components/SplineComponent.h"
 #include "EditorViewportClient.h"
 #include "SceneManagement.h"
@@ -18,7 +18,7 @@ void FBezierCurveVisualizer::DrawVisualization(const UActorComponent* Component,
     if (!Owner || !IsValid(Owner))
         return;
 
-    const ABezierCurveActor* Actor = Cast<ABezierCurveActor>(Owner);
+    const ACurveScribeActor* Actor = Cast<ACurveScribeActor>(Owner);
     if (!Actor)
         return;
 
@@ -73,7 +73,7 @@ bool FBezierCurveVisualizer::VisProxyHandleClick(FEditorViewportClient* InViewpo
         // 通过组件获取 Actor
         if (VisProxy->Component.IsValid())
         {
-            ABezierCurveActor* Actor = Cast<ABezierCurveActor>(VisProxy->Component->GetOwner());
+            ACurveScribeActor* Actor = Cast<ACurveScribeActor>(VisProxy->Component->GetOwner());
             if (Actor && Proxy->ControlPointIndex >= 0
                 && Proxy->ControlPointIndex < Actor->ControlPoints.Num())
             {

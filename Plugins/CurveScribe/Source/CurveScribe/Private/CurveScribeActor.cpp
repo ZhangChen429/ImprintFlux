@@ -1,19 +1,21 @@
-#include "BezierCurveActor.h"
+#include "CurveScribeActor.h"
+#include "CurveScribeScene.h"
 #include "Components/SplineComponent.h"
 #include "Components/BillboardComponent.h"
 
-ABezierCurveActor::ABezierCurveActor()
+ACurveScribeActor::ACurveScribeActor()
 {
     PrimaryActorTick.bCanEverTick = false;
     bRunConstructionScriptOnDrag = true;
 
+    
     RootComponent = CreateDefaultSubobject<USceneComponent>(TEXT("SceneRoot"));
 
     BillboardComponentBegin = CreateDefaultSubobject<UBillboardComponent>(TEXT("BillboardBeginComponent"));
     BillboardComponentBegin->SetupAttachment(RootComponent);
 
     // 曲线目标子树
-    CurveTargetScene = CreateDefaultSubobject<UCurveTargetScene>(TEXT("CurveTargetScene"));
+    CurveTargetScene = CreateDefaultSubobject<UCurveScribeScene>(TEXT("CurveTargetScene"));
     CurveTargetScene->SetupAttachment(RootComponent);
 
     // 子组件在 Actor 中创建，挂到 CurveTargetScene 下
@@ -34,18 +36,72 @@ ABezierCurveActor::ABezierCurveActor()
         ControlPoints.Last() + FVector(100.0f, 0.0f, 0.0f));
 }
 
-void ABezierCurveActor::PostInitProperties()
+void ACurveScribeActor::PostInitProperties()
 {
     Super::PostInitProperties();
 }
 
-void ABezierCurveActor::NotifyControlPointsChanged()
+void ACurveScribeActor::NotifyControlPointsChanged()
 {
     OnControlPointsChanged.Broadcast(ControlPoints);
 }
 
+void ACurveScribeActor::LoadFromDataAsset()
+{
+    if (!CurveData)
+    {
+        return;
+    }
+
+    Modify();
+
+    ControlPoints = CurveData->ControlPoints;
+    FillSegmentCount = CurveData->FillSegmentCount;
+    MaxDeviationAngle = CurveData->MaxDeviationAngle;
+    TargetStepDistance = CurveData->TargetStepDistance;
+
+    if (CurveTargetScene)
+    {
+        CurveTargetScene->CurveResolution = CurveData->CurveResolution;
+        CurveTargetScene->SplinePointType = CurveData->SplinePointType;
+        CurveTargetScene->DebugCircleRadius = CurveData->DebugCircleRadius;
+
+        if (CurveTargetScene->BillboardComponentEnd && ControlPoints.Num() > 0)
+        {
+            CurveTargetScene->BillboardComponentEnd->SetRelativeLocation(
+                ControlPoints.Last() + FVector(100.0f, 0.0f, 0.0f));
+        }
+    }
+
+    NotifyControlPointsChanged();
+}
+
+void ACurveScribeActor::SaveToDataAsset()
+{
+    if (!CurveData)
+    {
+        return;
+    }
+
+    CurveData->Modify();
+
+    CurveData->ControlPoints = ControlPoints;
+    CurveData->FillSegmentCount = FillSegmentCount;
+    CurveData->MaxDeviationAngle = MaxDeviationAngle;
+    CurveData->TargetStepDistance = TargetStepDistance;
+
+    if (CurveTargetScene)
+    {
+        CurveData->CurveResolution = CurveTargetScene->CurveResolution;
+        CurveData->SplinePointType = CurveTargetScene->SplinePointType;
+        CurveData->DebugCircleRadius = CurveTargetScene->DebugCircleRadius;
+    }
+
+    CurveData->MarkPackageDirty();
+}
+
 #if WITH_EDITOR
-void ABezierCurveActor::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
+void ACurveScribeActor::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
 {
     Super::PostEditChangeProperty(PropertyChangedEvent);
 
@@ -53,7 +109,7 @@ void ABezierCurveActor::PostEditChangeProperty(FPropertyChangedEvent& PropertyCh
         ? PropertyChangedEvent.Property->GetFName()
         : NAME_None;
 
-    if (PropertyName == GET_MEMBER_NAME_CHECKED(ABezierCurveActor, ControlPoints))
+    if (PropertyName == GET_MEMBER_NAME_CHECKED(ACurveScribeActor, ControlPoints))
     {
         if (PropertyChangedEvent.ChangeType == EPropertyChangeType::ArrayAdd)
         {
@@ -74,20 +130,20 @@ void ABezierCurveActor::PostEditChangeProperty(FPropertyChangedEvent& PropertyCh
     }
 }
 
-void ABezierCurveActor::PostEditUndo()
+void ACurveScribeActor::PostEditUndo()
 {
     Super::PostEditUndo();
     NotifyControlPointsChanged();
 }
 #endif
 
-void ABezierCurveActor::OnConstruction(const FTransform& Transform)
+void ACurveScribeActor::OnConstruction(const FTransform& Transform)
 {
     Super::OnConstruction(Transform);
     NotifyControlPointsChanged();
 }
 
-void ABezierCurveActor::FillPointsToTarget()
+void ACurveScribeActor::FillPointsToTarget()
 {
     if (ControlPoints.Num() == 0 || !CurveTargetScene || !CurveTargetScene->BillboardComponentEnd || FillSegmentCount <= 0)
     {
@@ -116,7 +172,7 @@ void ABezierCurveActor::FillPointsToTarget()
     NotifyControlPointsChanged();
 }
 
-void ABezierCurveActor::FillPointsRandomToTarget()
+void ACurveScribeActor::FillPointsRandomToTarget()
 {
     if (ControlPoints.Num() == 0 || !CurveTargetScene || !CurveTargetScene->BillboardComponentEnd
         || TargetStepDistance <= KINDA_SMALL_NUMBER)

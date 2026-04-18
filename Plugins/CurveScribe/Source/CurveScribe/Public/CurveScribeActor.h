@@ -2,11 +2,11 @@
 
 #include "CoreMinimal.h"
 #include "CurveScribeDataAsset.h"
-#include "CurveTargetScene.h"
 #include "GameFramework/Actor.h"
 #include "Components/ActorComponent.h"
-#include "BezierCurveActor.generated.h"
+#include "CurveScribeActor.generated.h"
 
+class UCurveScribeScene;
 class UBillboardComponent;
 
 /**
@@ -27,12 +27,12 @@ DECLARE_MULTICAST_DELEGATE_OneParam(FOnControlPointsChanged, const TArray<FVecto
  * 控制点数据由 Actor 管理，通过委托通知 UCurveTargetScene 刷新样条线
  */
 UCLASS(Meta = (PrioritizeCategories = "BezierActions"))
-class CURVESCRIBE_API ABezierCurveActor : public AActor
+class CURVESCRIBE_API ACurveScribeActor : public AActor
 {
     GENERATED_BODY()
 
 public:
-    ABezierCurveActor();
+    ACurveScribeActor();
 
     // ── 控制点变更委托 ──
     FOnControlPointsChanged OnControlPointsChanged;
@@ -57,6 +57,16 @@ public:
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "BezierActions|BezierFill", meta = (DisplayName = "步进距离"))
     float TargetStepDistance = 20.0f;
 
+    // ── 数据资产引用 ──
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "BezierActions|BezierData", meta = (DisplayName = "曲线数据资产"))
+    TObjectPtr<UCurveScribeDataAsset> CurveData;
+
+    UFUNCTION(BlueprintCallable, CallInEditor, Category = "BezierActions|BezierData", meta = (DisplayName = "从数据资产加载"))
+    void LoadFromDataAsset();
+
+    UFUNCTION(BlueprintCallable, CallInEditor, Category = "BezierActions|BezierData", meta = (DisplayName = "保存到数据资产"))
+    void SaveToDataAsset();
+
     // ── 操作函数 ──
     UFUNCTION(BlueprintCallable, CallInEditor, Category = "BezierActions|BezierFill", meta = (DisplayName = "根据目标点位生成沿线控制点"))
     void FillPointsToTarget();
@@ -69,7 +79,7 @@ public:
 
     // ── 组件 ──
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Bezier Curve")
-    TObjectPtr<UCurveTargetScene> CurveTargetScene;
+    TObjectPtr<UCurveScribeScene> CurveTargetScene;
 
 protected:
 

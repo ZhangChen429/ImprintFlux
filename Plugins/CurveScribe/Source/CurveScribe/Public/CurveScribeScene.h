@@ -3,7 +3,7 @@
 #include "CoreMinimal.h"
 #include "Components/SceneComponent.h"
 #include "Components/SplineComponent.h"
-#include "CurveTargetScene.generated.h"
+#include "CurveScribeScene.generated.h"
 
 class USplineComponent;
 class UBillboardComponent;
@@ -13,13 +13,22 @@ class UBillboardComponent;
  * 通过绑定 Actor 的 OnControlPointsChanged 委托自动刷新
  */
 UCLASS(ClassGroup=(Custom), meta=(BlueprintSpawnableComponent, PrioritizeCategories = "BezierActions"))
-class CURVESCRIBE_API UCurveTargetScene : public USceneComponent
+class CURVESCRIBE_API UCurveScribeScene : public USceneComponent
 {
     GENERATED_BODY()
 
 public:
-    UCurveTargetScene();
+    UCurveScribeScene();
+    
+    virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
+    
+    // ── Debug  ──
+    UPROPERTY(EditAnywhere, Category = "Debug")
+    float DebugCircleRadius = 20.f;
 
+    UPROPERTY(EditAnywhere, Category = "Debug")
+    FColor DebugColor = FColor::Cyan;
+    
     // ── 样条线参数 ──
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "BezierActions|BezierActions", meta = (ClampMin = "10", ClampMax = "500"))
     int32 CurveResolution = 100;

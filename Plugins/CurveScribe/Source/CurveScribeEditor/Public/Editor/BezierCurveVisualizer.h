@@ -3,7 +3,7 @@
 #include "CoreMinimal.h"
 #include "ComponentVisualizer.h"
 
-class ABezierCurveActor;
+class ACurveScribeActor;
 
 /**
  * 控制点 Hit Proxy，用于检测鼠标点击
@@ -46,7 +46,7 @@ public:
 
 private:
     // 当前选中的 Actor 和控制点
-    TWeakObjectPtr<ABezierCurveActor> SelectedActor;
+    TWeakObjectPtr<ACurveScribeActor> SelectedActor;
     int32 SelectedPointIndex = INDEX_NONE;
 
     // 控制点半径
