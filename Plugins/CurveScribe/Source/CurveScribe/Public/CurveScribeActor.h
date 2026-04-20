@@ -38,7 +38,8 @@ public:
     FOnControlPointsChanged OnControlPointsChanged;
 
     // ── 控制点数据 ──
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "BezierActions|BezierActions", meta = (MakeEditWidget = true))
+    // 注意：去掉 MakeEditWidget，3D 编辑由 FBezierCurveVisualizer 接管（基底=Scene 的 ComponentTransform）
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "BezierActions|BezierActions", meta = (DisplayName = "控制点数组"))
     TArray<FVector> ControlPoints;
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "BezierActions|BezierActions", meta = (MakeEditWidget = true))

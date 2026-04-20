@@ -14,6 +14,7 @@
 #include "UnrealEdGlobals.h"
 #include "Editor/UnrealEdEngine.h"
 #include "CurveScribeActor.h"
+#include "CurveScribeScene.h"
 #include "Widgets/Input/SSpinBox.h"
 #include "Widgets/Input/SButton.h"
 #include "Widgets/Text/STextBlock.h"
@@ -73,10 +74,10 @@ void FCurveScribeEditorModule::StartupModule()
 		{
 			BezierCurveVisualizer = MakeShared<FBezierCurveVisualizer>();
 			GUnrealEd->RegisterComponentVisualizer(
-				UBezierVisualizerComponent::StaticClass()->GetFName(),
+				UCurveScribeScene::StaticClass()->GetFName(),
 				BezierCurveVisualizer
 			);
-			UE_LOG(LogUEBlenderTool, Log, TEXT("BezierCurve Visualizer registered for BezierVisualizerComponent"));
+			UE_LOG(LogUEBlenderTool, Log, TEXT("BezierCurve Visualizer registered for UCurveScribeScene"));
 		}
 	});
 }
@@ -107,7 +108,7 @@ void FCurveScribeEditorModule::ShutdownModule()
 	// 注销贝塞尔曲线可视化工具
 	if (GUnrealEd && BezierCurveVisualizer.IsValid())
 	{
-		GUnrealEd->UnregisterComponentVisualizer(UBezierVisualizerComponent::StaticClass()->GetFName());
+		GUnrealEd->UnregisterComponentVisualizer(UCurveScribeScene::StaticClass()->GetFName());
 		BezierCurveVisualizer.Reset();
 	}
 }
