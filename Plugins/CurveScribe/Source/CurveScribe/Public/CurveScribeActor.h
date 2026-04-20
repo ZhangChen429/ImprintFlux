@@ -52,16 +52,16 @@ public:
     int32 FillSegmentCount;
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "BezierActions|BezierFill", meta = (DisplayName = "最大偏转角度", ClampMin = "0", ClampMax = "90"))
-    float MaxDeviationAngle = 15.0f;
+    float MaxDeviationAngle = 45.0f;
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "BezierActions|BezierFill", meta = (DisplayName = "步进距离"))
-    float TargetStepDistance = 20.0f;
+    float TargetStepDistance = 200.0f;
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "BezierActions|BezierFill", meta = (DisplayName = "控制点随机偏移最小半径", ClampMin = "0"))
     float ControlPointRandomOffsetMin = 0.f;
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "BezierActions|BezierFill", meta = (DisplayName = "控制点随机偏移最大半径", ClampMin = "0"))
-    float ControlPointRandomOffsetMax = 50.f;
+    float ControlPointRandomOffsetMax = 150.f;
 
     // ── 操作函数 ──
     UFUNCTION(BlueprintCallable, CallInEditor, Category = "BezierActions|BezierFill", meta = (DisplayName = "根据目标点位生成沿线控制点"))
@@ -82,7 +82,12 @@ public:
 
     UFUNCTION(BlueprintCallable, CallInEditor, Category = "BezierActions|BezierData", meta = (DisplayName = "保存到数据资产"))
     void SaveToDataAsset();
-    
+
+    // 把 CurveTargetScene 的 RelativeTransform 烘焙进 ControlPoints / Billboard 本地位置，
+    // 然后把 Scene 重置为 identity。结果：曲线视觉位置不变，MakeEditWidget 与曲线重新对齐。
+    UFUNCTION(BlueprintCallable, CallInEditor, Category = "BezierActions|Transform",meta = (DisplayName = "把 Scene Transform 烘焙到控制点"))
+    void BakeSceneTransformIntoControlPoints();
+
     // 广播控制点变更，通知所有绑定的监听者刷新
     void NotifyControlPointsChanged();
 

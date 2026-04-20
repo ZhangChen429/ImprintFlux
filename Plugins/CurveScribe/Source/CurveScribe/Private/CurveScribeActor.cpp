@@ -68,6 +68,46 @@ void ACurveScribeActor::LoadFromDataAsset()
     NotifyControlPointsChanged();
 }
 
+void ACurveScribeActor::BakeSceneTransformIntoControlPoints()
+{
+    if (!CurveTargetScene)
+    {
+        return;
+    }
+
+    const FTransform SceneRel = CurveTargetScene->GetRelativeTransform();
+    if (SceneRel.Equals(FTransform::Identity))
+    {
+        return;
+    }
+
+    Modify();
+    CurveTargetScene->Modify();
+
+    // 控制点：把 Scene 的相对变换吸收进 actor-local 坐标
+    for (FVector& P : ControlPoints)
+    {
+        P = SceneRel.TransformPosition(P);
+    }
+
+    // Billboard：保持其在 actor 下的世界位置（Scene 重置为 identity 后世界变换会变）
+    auto BakeBillboard = [&SceneRel](UBillboardComponent* B)
+    {
+        if (!B) { return; }
+        B->Modify();
+        const FVector NewLocal = SceneRel.TransformPosition(B->GetRelativeLocation());
+        B->SetRelativeLocation(NewLocal);
+    };
+    BakeBillboard(CurveTargetScene->BillboardComponentBegin);
+    BakeBillboard(CurveTargetScene->BillboardComponentEnd);
+
+    // 重置 Scene，使其与 actor 对齐；MakeEditWidget 此时会与曲线重新对齐
+    CurveTargetScene->SetRelativeTransform(FTransform::Identity);
+
+    // 触发 spline 重建
+    NotifyControlPointsChanged();
+}
+
 void ACurveScribeActor::SaveToDataAsset()
 {
     if (!CurveData)

@@ -192,27 +192,28 @@ void UCurveScribeScene::RebuildCurve(const TArray<FVector>& InControlPoints)
         return;
     }
 
+    // 控制点视为 Scene 本地空间；所有 spline 点写 Local，整体跟随 Scene 的 ComponentTransform
     TArray<FVector> CurvePoints;
+    CurvePoints.Reserve(CurveResolution + 1);
     for (int32 i = 0; i <= CurveResolution; ++i)
     {
         float T = static_cast<float>(i) / static_cast<float>(CurveResolution);
         CurvePoints.Add(CalculateBezierPoint(InControlPoints, T));
     }
 
-    const FVector WorldOrigin = GetOwner() ? GetOwner()->GetActorLocation() : GetComponentLocation();
     SplineComponent->ClearSplinePoints(false);
     for (int32 i = 0; i < CurvePoints.Num(); ++i)
     {
-        SplineComponent->AddSplinePoint(WorldOrigin + CurvePoints[i], ESplineCoordinateSpace::World, false);
+        SplineComponent->AddSplinePoint(CurvePoints[i], ESplineCoordinateSpace::Local, false);
         SplineComponent->SetSplinePointType(i, SplinePointType, false);
     }
     SplineComponent->UpdateSpline();
 
-    RebuildCorridor(CurvePoints, WorldOrigin);
-    RebuildRandomInCorridor(InControlPoints, WorldOrigin);
+    RebuildCorridor(CurvePoints);
+    RebuildRandomInCorridor(InControlPoints);
 }
 
-void UCurveScribeScene::RebuildCorridor(const TArray<FVector>& InCurvePoints, const FVector& WorldOrigin)
+void UCurveScribeScene::RebuildCorridor(const TArray<FVector>& InCurvePoints)
 {
     if (InCurvePoints.Num() < 2 || !SplineComponentLeft || !SplineComponentRight || CorridorRadius <= KINDA_SMALL_NUMBER)
     {
@@ -227,14 +228,14 @@ void UCurveScribeScene::RebuildCorridor(const TArray<FVector>& InCurvePoints, co
     const int32 Last = InCurvePoints.Num() - 1;
     for (int32 i = 0; i <= Last; ++i)
     {
-        // 中心差分求切向，端点退化为前向/后向差分
+        // 中心差分求切向，端点退化为前向/后向差分（Scene 本地空间）
         FVector Tangent;
         if (i == 0)           { Tangent = InCurvePoints[1] - InCurvePoints[0]; }
         else if (i == Last)   { Tangent = InCurvePoints[Last] - InCurvePoints[Last - 1]; }
         else                  { Tangent = InCurvePoints[i + 1] - InCurvePoints[i - 1]; }
         Tangent = Tangent.GetSafeNormal();
 
-        // 以世界 Z 为参考 Up，Right = T × Z；若切向接近竖直则退化用世界 X
+        // 以本地 Z 为参考 Up，Right = T × Z；若切向接近竖直则退化用本地 X
         FVector RightDir = FVector::CrossProduct(Tangent, FVector::UpVector).GetSafeNormal();
         if (RightDir.IsNearlyZero())
         {
@@ -242,12 +243,12 @@ void UCurveScribeScene::RebuildCorridor(const TArray<FVector>& InCurvePoints, co
             if (RightDir.IsNearlyZero()) { RightDir = FVector::RightVector; }
         }
 
-        const FVector CenterWorld = WorldOrigin + InCurvePoints[i];
-        const FVector LeftWorld   = CenterWorld - RightDir * CorridorRadius;
-        const FVector RightWorld  = CenterWorld + RightDir * CorridorRadius;
+        const FVector CenterLocal = InCurvePoints[i];
+        const FVector LeftLocal   = CenterLocal - RightDir * CorridorRadius;
+        const FVector RightLocal  = CenterLocal + RightDir * CorridorRadius;
 
-        SplineComponentLeft->AddSplinePoint(LeftWorld,   ESplineCoordinateSpace::World, false);
-        SplineComponentRight->AddSplinePoint(RightWorld, ESplineCoordinateSpace::World, false);
+        SplineComponentLeft->AddSplinePoint(LeftLocal,   ESplineCoordinateSpace::Local, false);
+        SplineComponentRight->AddSplinePoint(RightLocal, ESplineCoordinateSpace::Local, false);
         SplineComponentLeft->SetSplinePointType(i,  SplinePointType, false);
         SplineComponentRight->SetSplinePointType(i, SplinePointType, false);
     }
@@ -256,9 +257,9 @@ void UCurveScribeScene::RebuildCorridor(const TArray<FVector>& InCurvePoints, co
     SplineComponentRight->UpdateSpline();
 }
 
-void UCurveScribeScene::RebuildRandomInCorridor(const TArray<FVector>& InControlPoints, const FVector& WorldOrigin)
+void UCurveScribeScene::RebuildRandomInCorridor(const TArray<FVector>& InControlPoints)
 {
-    auto BuildOne = [this, &InControlPoints, &WorldOrigin](USplineComponent* Spline)
+    auto BuildOne = [this, &InControlPoints](USplineComponent* Spline)
     {
         if (!Spline) { return; }
         Spline->ClearSplinePoints(false);
@@ -269,7 +270,7 @@ void UCurveScribeScene::RebuildRandomInCorridor(const TArray<FVector>& InControl
             return;
         }
 
-        // 对每个贝塞尔控制点做随机左右偏移（首末端保持不动，保证起止点一致）
+        // 对每个贝塞尔控制点做随机偏移（首末端保持不动，保证起止点一致）
         const int32 Last = InControlPoints.Num() - 1;
         TArray<FVector> OffsetCPs;
         OffsetCPs.Reserve(InControlPoints.Num());
@@ -304,12 +305,12 @@ void UCurveScribeScene::RebuildRandomInCorridor(const TArray<FVector>& InControl
             OffsetCPs.Add(InControlPoints[i] + OffsetDir * RandMag);
         }
 
-        // 用偏移后的控制点做贝塞尔采样
+        // 用偏移后的控制点做贝塞尔采样，写入 Scene 本地空间
         for (int32 i = 0; i <= CurveResolution; ++i)
         {
             const float T = static_cast<float>(i) / static_cast<float>(CurveResolution);
             const FVector P = CalculateBezierPoint(OffsetCPs, T);
-            Spline->AddSplinePoint(WorldOrigin + P, ESplineCoordinateSpace::World, false);
+            Spline->AddSplinePoint(P, ESplineCoordinateSpace::Local, false);
             Spline->SetSplinePointType(i, SplinePointType, false);
         }
         Spline->UpdateSpline();

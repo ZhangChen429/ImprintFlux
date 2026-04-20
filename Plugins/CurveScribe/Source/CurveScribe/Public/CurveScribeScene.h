@@ -72,12 +72,12 @@ public:
     void SetShowDebugCircles(bool bNewShow);
 
     // ── 样条线参数 ──
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "BezierActions|BezierActions", meta = (ClampMin = "10", ClampMax = "500"))
-    int32 CurveResolution = 100;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "BezierActions|BezierActions", meta = (ClampMin = "10", ClampMax = "500",DisplayName = "曲线分段数量"))
+    int32 CurveResolution = 10;
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "BezierActions|BezierActions")
     TEnumAsByte<ESplinePointType::Type> SplinePointType = ESplinePointType::Curve;
-
+    
     // ── 安全走廊 ──
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "BezierActions|Corridor", meta = (ClampMin = "0", DisplayName = "走廊半径"))
     float CorridorRadius = 50.f;
@@ -109,11 +109,11 @@ public:
 
     void RebuildCurve(const TArray<FVector>& InControlPoints);
 
-    // 根据内层采样点重建左右两条走廊管壁
-    void RebuildCorridor(const TArray<FVector>& InCurvePoints, const FVector& WorldOrigin);
+    // 根据内层采样点重建左右两条走廊管壁（点存于 Scene 本地空间）
+    void RebuildCorridor(const TArray<FVector>& InCurvePoints);
 
-    // 在走廊内生成两条随机偏移的贝塞尔样条线
-    void RebuildRandomInCorridor(const TArray<FVector>& InControlPoints, const FVector& WorldOrigin);
+    // 在走廊内生成两条随机偏移的贝塞尔样条线（点存于 Scene 本地空间）
+    void RebuildRandomInCorridor(const TArray<FVector>& InControlPoints);
 
     // 绑定到 Owner Actor 的委托
     void BindToOwner();
