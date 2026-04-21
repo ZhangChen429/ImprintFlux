@@ -26,6 +26,7 @@ public class CurveScribeEditor : ModuleRules
                 "ToolMenus",           
                 "InputCore",            
                 "EditorStyle",
+                "PropertyEditor",
                 "Projects",              
                 "WorkspaceMenuStructure", "CurveScribe", "MeshConversion",
                 "SlateCore",

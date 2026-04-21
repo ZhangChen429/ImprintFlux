@@ -1,6 +1,5 @@
 #include "CurveScribeActor.h"
 #include "CurveScribeScene.h"
-#include "Components/BillboardComponent.h"
 
 ACurveScribeActor::ACurveScribeActor()
 {
@@ -16,30 +15,6 @@ ACurveScribeActor::ACurveScribeActor()
 void ACurveScribeActor::PostInitProperties()
 {
     Super::PostInitProperties();
-}
-
-void ACurveScribeActor::LoadFromDataAsset()
-{
-    if (CurveTargetScene)
-    {
-        CurveTargetScene->LoadFromDataAsset();
-    }
-}
-
-void ACurveScribeActor::BakeSceneTransformIntoControlPoints()
-{
-    if (CurveTargetScene)
-    {
-        CurveTargetScene->BakeTransformIntoControlPoints();
-    }
-}
-
-void ACurveScribeActor::SaveToDataAsset()
-{
-    if (CurveTargetScene)
-    {
-        CurveTargetScene->SaveToDataAsset();
-    }
 }
 
 #if WITH_EDITOR

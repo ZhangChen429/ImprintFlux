@@ -3,7 +3,9 @@
 #include "Misc/CoreDelegates.h"
 #include "Editor/BezierCurveCommand.h"
 #include "Editor/BezierCurveVisualizer.h"
+#include "Editor/CurveScribeSceneCustomization.h"
 #include "Style/BlenderPluginStyle.h"
+#include "PropertyEditorModule.h"
 #include "ToolMenus.h"
 #include "WorkspaceMenuStructure.h"
 #include "WorkspaceMenuStructureModule.h"
@@ -15,6 +17,7 @@
 #include "Editor/UnrealEdEngine.h"
 #include "CurveScribeActor.h"
 #include "CurveScribeScene.h"
+#include "CurveScribeDataAsset.h"
 #include "Widgets/Input/SSpinBox.h"
 #include "Widgets/Input/SButton.h"
 #include "Widgets/Text/STextBlock.h"
@@ -45,29 +48,19 @@ namespace BezierCurveSettings
 
 void FCurveScribeEditorModule::StartupModule()
 {
-	
-	// // 初始化贝塞尔曲线命令列表
-	// BezierCurveCommands = MakeShareable(new FUICommandList);
-	//
-	// // 注册贝塞尔曲线命令
-	// FBezierCurveCommand::Register();
-	//
-	// // 绑定贝塞尔曲线命令到操作
-	// BezierCurveCommands->MapAction(
-	// 	FBezierCurveCommand::Get().OpenBezierCurveWindow,
-	// 	FExecuteAction::CreateRaw(this, &FCurveScribeEditorModule::OnBezierCurveButtonClicked),
-	// 	FCanExecuteAction()
-	// );
 
 	// 注册贝塞尔曲线 DockTab
 	RegisterBezierCurveTab();
 
-	// 注册菜单扩展
-	//UToolMenus::RegisterStartupCallback(
-	//	FSimpleMulticastDelegate::FDelegate::CreateRaw(this, &FCurveScribeEditorModule::RegisterMenus)
-	//);
+	// 注册 UCurveScribeScene 的 Details Panel 自定义布局
+	{
+		FPropertyEditorModule& PropertyModule = FModuleManager::LoadModuleChecked<FPropertyEditorModule>("PropertyEditor");
+		PropertyModule.RegisterCustomClassLayout(
+			UCurveScribeScene::StaticClass()->GetFName(),
+			FOnGetDetailCustomizationInstance::CreateStatic(&FCurveScribeSceneCustomization::MakeInstance)
+		);
+	}
 
-	// 延迟注册贝塞尔曲线可视化工具（等待 GUnrealEd 初始化）
 	FCoreDelegates::OnPostEngineInit.AddLambda([this]()
 	{
 		if (GUnrealEd)
@@ -87,12 +80,19 @@ void FCurveScribeEditorModule::ShutdownModule()
 	// 清理菜单
 	UToolMenus::UnRegisterStartupCallback(this);
 	UToolMenus::UnregisterOwner(this);
-	
+
 
 	// 注销贝塞尔曲线 DockTab
 	if (FGlobalTabmanager::Get()->HasTabSpawner(BezierCurveTabName))
 	{
 		FGlobalTabmanager::Get()->UnregisterNomadTabSpawner(BezierCurveTabName);
+	}
+
+	// 注销 UCurveScribeScene 的 Details Panel 自定义布局
+	if (FModuleManager::Get().IsModuleLoaded("PropertyEditor"))
+	{
+		FPropertyEditorModule& PropertyModule = FModuleManager::LoadModuleChecked<FPropertyEditorModule>("PropertyEditor");
+		PropertyModule.UnregisterCustomClassLayout(UCurveScribeScene::StaticClass()->GetFName());
 	}
 
 	// 注销命令
