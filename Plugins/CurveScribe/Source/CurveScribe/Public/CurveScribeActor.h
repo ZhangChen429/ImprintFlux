@@ -26,7 +26,7 @@ DECLARE_MULTICAST_DELEGATE_OneParam(FOnControlPointsChanged, const TArray<FVecto
  * 贝塞尔曲线 Actor
  * 控制点数据由 Actor 管理，通过委托通知 UCurveTargetScene 刷新样条线
  */
-UCLASS(Meta = (PrioritizeCategories = "BezierActions"))
+UCLASS(Meta = (PrioritizeCategories = "BezierActions BezierFill BezierData"))
 class CURVESCRIBE_API ACurveScribeActor : public AActor
 {
     GENERATED_BODY()
@@ -49,39 +49,39 @@ public:
     int32 SelectedControlPointIndex = INDEX_NONE;
 
     // ── 填充参数 ──
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "BezierActions|BezierFill", meta = (DisplayName = "填充段数", ClampMin = "1"))
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "BezierFill", meta = (DisplayName = "填充段数", ClampMin = "1"))
     int32 FillSegmentCount;
 
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "BezierActions|BezierFill", meta = (DisplayName = "最大偏转角度", ClampMin = "0", ClampMax = "90"))
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "BezierFill", meta = (DisplayName = "最大偏转角度", ClampMin = "0", ClampMax = "90"))
     float MaxDeviationAngle = 45.0f;
 
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "BezierActions|BezierFill", meta = (DisplayName = "步进距离"))
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "BezierFill", meta = (DisplayName = "步进距离"))
     float TargetStepDistance = 200.0f;
 
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "BezierActions|BezierFill", meta = (DisplayName = "控制点随机偏移最小半径", ClampMin = "0"))
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "BezierFill", meta = (DisplayName = "控制点随机偏移最小半径", ClampMin = "0"))
     float ControlPointRandomOffsetMin = 0.f;
 
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "BezierActions|BezierFill", meta = (DisplayName = "控制点随机偏移最大半径", ClampMin = "0"))
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "BezierFill", meta = (DisplayName = "控制点随机偏移最大半径", ClampMin = "0"))
     float ControlPointRandomOffsetMax = 150.f;
 
     // ── 操作函数 ──
-    UFUNCTION(BlueprintCallable, CallInEditor, Category = "BezierActions|BezierFill", meta = (DisplayName = "根据目标点位生成沿线控制点"))
+    UFUNCTION(BlueprintCallable, CallInEditor, Category = "BezierFill", meta = (DisplayName = "根据目标点位生成沿线控制点"))
     void FillPointsToTarget();
 
-    UFUNCTION(BlueprintCallable, CallInEditor, Category = "BezierActions|BezierFill", meta = (DisplayName = "根据目标点位生成偏转控制点"))
+    UFUNCTION(BlueprintCallable, CallInEditor, Category = "BezierFill", meta = (DisplayName = "根据目标点位生成偏转控制点"))
     void FillPointsRandomToTarget();
 
-    UFUNCTION(BlueprintCallable, CallInEditor, Category = "BezierActions|BezierFill", meta = (DisplayName = "对所有控制点施加随机偏移"))
+    UFUNCTION(BlueprintCallable, CallInEditor, Category = "BezierFill", meta = (DisplayName = "对所有控制点施加随机偏移"))
     void RandomOffsetControlPoints();
     
     // ── 数据资产引用 ──
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "BezierActions|BezierData", meta = (DisplayName = "曲线数据资产"))
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "BezierData", meta = (DisplayName = "曲线数据资产"))
     TObjectPtr<UCurveScribeDataAsset> CurveData;
 
-    UFUNCTION(BlueprintCallable, CallInEditor, Category = "BezierActions|BezierData", meta = (DisplayName = "从数据资产加载"))
+    UFUNCTION(BlueprintCallable, CallInEditor, Category = "BezierData", meta = (DisplayName = "从数据资产加载"))
     void LoadFromDataAsset();
 
-    UFUNCTION(BlueprintCallable, CallInEditor, Category = "BezierActions|BezierData", meta = (DisplayName = "保存到数据资产"))
+    UFUNCTION(BlueprintCallable, CallInEditor, Category = "BezierData", meta = (DisplayName = "保存到数据资产"))
     void SaveToDataAsset();
 
     // 把 CurveTargetScene 的 RelativeTransform 烘焙进 ControlPoints / Billboard 本地位置，
@@ -93,13 +93,13 @@ public:
     void NotifyControlPointsChanged();
 
     // ── Debug：控制点朝向圆环 ──
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "BezierActions|Debug", meta = (DisplayName = "显示控制点圆环"))
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "BezierFill", meta = (DisplayName = "显示控制点圆环"))
     bool bShowControlPointCircles = false;
 
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "BezierActions|Debug", meta = (DisplayName = "控制点圆环半径", ClampMin = "0"))
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "BezierFill", meta = (DisplayName = "控制点圆环半径", ClampMin = "0"))
     float ControlPointCircleRadius = 30.f;
 
-    UPROPERTY(EditAnywhere, Category = "BezierActions|Debug", meta = (DisplayName = "控制点圆环颜色"))
+    UPROPERTY(EditAnywhere, Category = "BezierFill", meta = (DisplayName = "控制点圆环颜色"))
     FColor ControlPointCircleColor = FColor::Green;
 
     // ── 组件 ──

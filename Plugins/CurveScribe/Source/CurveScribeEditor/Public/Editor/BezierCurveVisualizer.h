@@ -50,7 +50,7 @@ private:
     int32 SelectedPointIndex = INDEX_NONE;
 
     // 控制点半径
-    static constexpr float ControlPointRadius = 20.0f;
+    static constexpr float ControlPointRadius = 50.0f;
 
     // 绘制单个控制点
     void DrawControlPoint(FPrimitiveDrawInterface* PDI, const UActorComponent* Component, const FVector& Location, int32 Index, bool bSelected, const FSceneView* View);
