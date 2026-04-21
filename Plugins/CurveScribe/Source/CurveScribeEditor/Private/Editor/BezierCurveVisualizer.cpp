@@ -1,5 +1,4 @@
 #include "Editor/BezierCurveVisualizer.h"
-#include "CurveScribeActor.h"
 #include "CurveScribeScene.h"
 #include "Components/SplineComponent.h"
 #include "EditorViewportClient.h"
@@ -11,50 +10,38 @@ IMPLEMENT_HIT_PROXY(HBezierControlPointHitProxy, HComponentVisProxy);
 
 namespace
 {
-    // 从 visualizer 收到的 Component（Scene）解析出 actor，并校验有效性
-    bool ResolveSceneAndActor(const UActorComponent* Component, const UCurveScribeScene*& OutScene, ACurveScribeActor*& OutActor)
+    // 从 visualizer 收到的 Component 解析出 Scene，并校验有效性
+    const UCurveScribeScene* ResolveScene(const UActorComponent* Component)
     {
-        OutScene = nullptr;
-        OutActor = nullptr;
-        if (!Component || !IsValid(Component)) return false;
-
-        const UCurveScribeScene* Scene = Cast<UCurveScribeScene>(Component);
-        if (!Scene) return false;
-
-        ACurveScribeActor* Actor = Cast<ACurveScribeActor>(Scene->GetOwner());
-        if (!Actor || !IsValid(Actor)) return false;
-
-        OutScene = Scene;
-        OutActor = Actor;
-        return true;
+        if (!Component || !IsValid(Component)) return nullptr;
+        return Cast<UCurveScribeScene>(Component);
     }
 }
 
 void FBezierCurveVisualizer::DrawVisualization(const UActorComponent* Component, const FSceneView* View, FPrimitiveDrawInterface* PDI)
 {
-    const UCurveScribeScene* Scene = nullptr;
-    ACurveScribeActor* Actor = nullptr;
-    if (!ResolveSceneAndActor(Component, Scene, Actor)) return;
+    const UCurveScribeScene* Scene = ResolveScene(Component);
+    if (!Scene) return;
 
     // 控制点视为 Scene 本地空间，绘制时通过 Scene 的世界变换映射到世界
     const FTransform SceneXform = Scene->GetComponentTransform();
 
     // 控制点之间的连线（虚线）
-    if (Actor->ControlPoints.Num() > 1)
+    if (Scene->ControlPoints.Num() > 1)
     {
-        for (int32 i = 0; i < Actor->ControlPoints.Num() - 1; ++i)
+        for (int32 i = 0; i < Scene->ControlPoints.Num() - 1; ++i)
         {
-            const FVector Start = SceneXform.TransformPosition(Actor->ControlPoints[i]);
-            const FVector End   = SceneXform.TransformPosition(Actor->ControlPoints[i + 1]);
+            const FVector Start = SceneXform.TransformPosition(Scene->ControlPoints[i]);
+            const FVector End   = SceneXform.TransformPosition(Scene->ControlPoints[i + 1]);
             PDI->DrawLine(Start, End, FLinearColor(0.3f, 0.3f, 0.3f, 0.5f), SDPG_Foreground, 1.0f, 0.5f);
         }
     }
 
     // 每个控制点
-    for (int32 i = 0; i < Actor->ControlPoints.Num(); ++i)
+    for (int32 i = 0; i < Scene->ControlPoints.Num(); ++i)
     {
-        const FVector Location = SceneXform.TransformPosition(Actor->ControlPoints[i]);
-        const bool bSelected = (Actor->SelectedControlPointIndex == i);
+        const FVector Location = SceneXform.TransformPosition(Scene->ControlPoints[i]);
+        const bool bSelected = (Scene->SelectedControlPointIndex == i);
         DrawControlPoint(PDI, Component, Location, i, bSelected, View);
     }
 }
@@ -76,14 +63,13 @@ bool FBezierCurveVisualizer::VisProxyHandleClick(FEditorViewportClient* InViewpo
     {
         if (VisProxy->Component.IsValid())
         {
-            const UCurveScribeScene* Scene = nullptr;
-            ACurveScribeActor* Actor = nullptr;
-            if (ResolveSceneAndActor(VisProxy->Component.Get(), Scene, Actor)
+            UCurveScribeScene* Scene = const_cast<UCurveScribeScene*>(ResolveScene(VisProxy->Component.Get()));
+            if (Scene
                 && Proxy->ControlPointIndex >= 0
-                && Proxy->ControlPointIndex < Actor->ControlPoints.Num())
+                && Proxy->ControlPointIndex < Scene->ControlPoints.Num())
             {
-                Actor->SelectedControlPointIndex = Proxy->ControlPointIndex;
-                SelectedActor = Actor;
+                Scene->SelectedControlPointIndex = Proxy->ControlPointIndex;
+                SelectedScene = Scene;
                 SelectedPointIndex = Proxy->ControlPointIndex;
 
                 GEditor->RedrawAllViewports();
@@ -93,10 +79,10 @@ bool FBezierCurveVisualizer::VisProxyHandleClick(FEditorViewportClient* InViewpo
     }
 
     // 点击空白处取消选择
-    if (SelectedActor.IsValid())
+    if (SelectedScene.IsValid())
     {
-        SelectedActor->SelectedControlPointIndex = INDEX_NONE;
-        SelectedActor.Reset();
+        SelectedScene->SelectedControlPointIndex = INDEX_NONE;
+        SelectedScene.Reset();
         SelectedPointIndex = INDEX_NONE;
         GEditor->RedrawAllViewports();
     }
@@ -106,33 +92,28 @@ bool FBezierCurveVisualizer::VisProxyHandleClick(FEditorViewportClient* InViewpo
 
 bool FBezierCurveVisualizer::GetWidgetLocation(const FEditorViewportClient* ViewportClient, FVector& OutLocation) const
 {
-    if (!SelectedActor.IsValid() || SelectedPointIndex == INDEX_NONE) return false;
-    if (SelectedPointIndex >= SelectedActor->ControlPoints.Num()) return false;
-    if (!SelectedActor->bShow3DWidget) return false;
+    if (!SelectedScene.IsValid() || SelectedPointIndex == INDEX_NONE) return false;
+    if (SelectedPointIndex >= SelectedScene->ControlPoints.Num()) return false;
+    if (!SelectedScene->bShow3DWidget) return false;
 
-    const UCurveScribeScene* Scene = SelectedActor->CurveTargetScene;
-    if (!Scene) return false;
-
-    OutLocation = Scene->GetComponentTransform().TransformPosition(SelectedActor->ControlPoints[SelectedPointIndex]);
+    OutLocation = SelectedScene->GetComponentTransform().TransformPosition(SelectedScene->ControlPoints[SelectedPointIndex]);
     return true;
 }
 
 bool FBezierCurveVisualizer::HandleInputDelta(FEditorViewportClient* ViewportClient, FViewport* Viewport, FVector& DeltaTranslate, FRotator& DeltaRotate, FVector& DeltaScale)
 {
     if (DeltaTranslate.IsNearlyZero()) return false;
-    if (!SelectedActor.IsValid() || SelectedPointIndex == INDEX_NONE) return false;
-    if (SelectedPointIndex >= SelectedActor->ControlPoints.Num()) return false;
+    if (!SelectedScene.IsValid() || SelectedPointIndex == INDEX_NONE) return false;
+    if (SelectedPointIndex >= SelectedScene->ControlPoints.Num()) return false;
 
-    const UCurveScribeScene* Scene = SelectedActor->CurveTargetScene;
-    if (!Scene) return false;
-
-    SelectedActor->Modify();
+    SelectedScene->Modify();
 
     // World-space delta → Scene 本地空间增量（处理 Scene 旋转/缩放）
-    const FVector LocalDelta = Scene->GetComponentTransform().InverseTransformVector(DeltaTranslate);
-    SelectedActor->ControlPoints[SelectedPointIndex] += LocalDelta;
+    const FVector LocalDelta = SelectedScene->GetComponentTransform().InverseTransformVector(DeltaTranslate);
+    SelectedScene->ControlPoints[SelectedPointIndex] += LocalDelta;
 
-    SelectedActor->NotifyControlPointsChanged();
+    SelectedScene->RebuildCurve();
+    SelectedScene->NotifyControlPointsChanged();
     GEditor->RedrawAllViewports();
     return true;
 }

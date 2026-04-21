@@ -1,5 +1,6 @@
 #include "CurveScribeScene.h"
 #include "CurveScribeActor.h"
+#include "CurveScribeDataAsset.h"
 #include "GameFramework/Actor.h"
 #include "Components/SplineComponent.h"
 #include "Components/BillboardComponent.h"
@@ -70,8 +71,17 @@ UCurveScribeScene::UCurveScribeScene()
     // 关键：允许组件 Tick
     PrimaryComponentTick.bCanEverTick = true;
     PrimaryComponentTick.bStartWithTickEnabled = true;
-
-
+    FillSegmentCount = 4;
+    // 控制点初始数据
+    ControlPoints.Add(FVector(0.0f, 0.0f, 0.0f));
+    ControlPoints.Add(FVector(100.0f, 200.0f, 0.0f));
+    ControlPoints.Add(FVector(200.0f, -100.0f, 0.0f));
+    ControlPoints.Add(FVector(300.0f, 0.0f, 0.0f));
+    if (BillboardComponentEnd)
+    {
+        BillboardComponentEnd->SetRelativeLocation(
+        ControlPoints.Last() + FVector(100.0f, 0.0f, 0.0f));
+    }
 #if WITH_EDITOR
     bTickInEditor = true;
 #endif
@@ -82,44 +92,27 @@ void UCurveScribeScene::TickComponent(float DeltaTime, ELevelTick TickType,
 {
     Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
 
-    // 1. 确保 Spline 存在且 Debug 开关打开
-    if (!SplineComponent || !bShowDebugCircles) return;
+    const FTransform SceneXform = GetComponentTransform();
 
-    // 2. 遍历所有样条线点
-    const int32 NumPoints = SplineComponent->GetNumberOfSplinePoints();
-    const float ClampedInnerR = FMath::Clamp(RandomOffsetMinRadius, 0.f, CorridorRadius);
-    for (int32 i = 0; i < NumPoints; ++i)
+    // ── 走廊 Debug 圆环 ──
+    if (SplineComponent && bShowDebugCircles)
     {
-        FVector PointLocation = SplineComponent->GetLocationAtSplinePoint(i, ESplineCoordinateSpace::World);
-        FQuat PointRotation = SplineComponent->GetQuaternionAtSplinePoint(i, ESplineCoordinateSpace::World);
-        FVector RightAxis = PointRotation.GetAxisY();
-        FVector UpAxis = PointRotation.GetAxisZ();
-
-        // 外圈：走廊半径
-        DrawDebugCircle(
-            GetWorld(),
-            PointLocation,
-            CorridorRadius,
-            32,
-            DebugColor,
-            false,
-            -1.f,
-            0,
-            1.5f,
-            RightAxis,
-            UpAxis,
-            false
-        );
-
-        // 内圈：随机最小偏移半径
-        if (ClampedInnerR > KINDA_SMALL_NUMBER)
+        const int32 NumPoints = SplineComponent->GetNumberOfSplinePoints();
+        const float ClampedInnerR = FMath::Clamp(RandomOffsetMinRadius, 0.f, CorridorRadius);
+        for (int32 i = 0; i < NumPoints; ++i)
         {
+            FVector PointLocation = SplineComponent->GetLocationAtSplinePoint(i, ESplineCoordinateSpace::World);
+            FQuat PointRotation = SplineComponent->GetQuaternionAtSplinePoint(i, ESplineCoordinateSpace::World);
+            FVector RightAxis = PointRotation.GetAxisY();
+            FVector UpAxis = PointRotation.GetAxisZ();
+
+            // 外圈：走廊半径
             DrawDebugCircle(
                 GetWorld(),
                 PointLocation,
-                ClampedInnerR,
+                CorridorRadius,
                 32,
-                DebugInnerColor,
+                DebugColor,
                 false,
                 -1.f,
                 0,
@@ -128,6 +121,82 @@ void UCurveScribeScene::TickComponent(float DeltaTime, ELevelTick TickType,
                 UpAxis,
                 false
             );
+
+            // 内圈：随机最小偏移半径
+            if (ClampedInnerR > KINDA_SMALL_NUMBER)
+            {
+                DrawDebugCircle(
+                    GetWorld(),
+                    PointLocation,
+                    ClampedInnerR,
+                    32,
+                    DebugInnerColor,
+                    false,
+                    -1.f,
+                    0,
+                    1.5f,
+                    RightAxis,
+                    UpAxis,
+                    false
+                );
+            }
+        }
+    }
+
+    // ── 控制点切向 Debug 圆环 ──
+    if (bShowControlPointCircles && ControlPoints.Num() > 0 )
+    {
+        const int32 Last = ControlPoints.Num() - 1;
+        for (int32 i = 0; i <= Last; ++i)
+        {
+            const FVector CenterW = SceneXform.TransformPosition(ControlPoints[i]);
+
+            // 切向：朝向下一个控制点；末点沿前一段方向
+            FVector TangentLocal;
+            if (i < Last)
+            {
+                TangentLocal = ControlPoints[i + 1] - ControlPoints[i];
+            }
+            else if (Last > 0)
+            {
+                TangentLocal = ControlPoints[i] - ControlPoints[i - 1];
+            }
+            else
+            {
+                TangentLocal = FVector::ForwardVector;
+            }
+
+            FVector Tangent = SceneXform.TransformVector(TangentLocal).GetSafeNormal();
+            if (Tangent.IsNearlyZero())
+            {
+                Tangent = FVector::ForwardVector;
+            }
+
+            // 圆环所在法平面的两个基向量（与 Tangent 正交）
+            FVector YAxis = FVector::CrossProduct(Tangent, FVector::UpVector).GetSafeNormal();
+            if (YAxis.IsNearlyZero())
+            {
+                YAxis = FVector::CrossProduct(Tangent, FVector::ForwardVector).GetSafeNormal();
+                if (YAxis.IsNearlyZero())
+                {
+                    YAxis = FVector::RightVector;
+                }
+            }
+            const FVector ZAxis = FVector::CrossProduct(Tangent, YAxis).GetSafeNormal();
+
+            DrawDebugCircle(
+                GetWorld(),
+                CenterW,
+                ControlPointRandomOffsetMin,
+                32,
+                ControlPointCircleColor,
+                false,
+                -1.f,
+                0,
+                1.5f,
+                YAxis,
+                ZAxis,
+                false);
         }
     }
 }
@@ -149,6 +218,11 @@ void UCurveScribeScene::SetShowDebugCircles(bool bNewShow)
     OnShowDebugCirclesChanged.Broadcast(bShowDebugCircles);
 }
 
+void UCurveScribeScene::NotifyControlPointsChanged()
+{
+    OnControlPointsChanged.Broadcast(ControlPoints);
+}
+
 #if WITH_EDITOR
 void UCurveScribeScene::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
 {
@@ -162,32 +236,47 @@ void UCurveScribeScene::PostEditChangeProperty(FPropertyChangedEvent& PropertyCh
     {
         OnShowDebugCirclesChanged.Broadcast(bShowDebugCircles);
     }
+
+    if (PropertyName == GET_MEMBER_NAME_CHECKED(UCurveScribeScene, ControlPoints))
+    {
+        if (PropertyChangedEvent.ChangeType == EPropertyChangeType::ArrayAdd)
+        {
+            int32 NewIndex = ControlPoints.Num() - 1;
+            if (NewIndex > 0)
+            {
+                ControlPoints[NewIndex] = ControlPoints[NewIndex - 1] + FVector(200.0f, 0.0f, 0.0f);
+            }
+            if (BillboardComponentEnd)
+            {
+                BillboardComponentEnd->SetRelativeLocation(
+                    ControlPoints[NewIndex] + FVector(100.0f, 0.0f, 0.0f));
+                BillboardComponentEnd->UpdateComponentToWorld();
+            }
+        }
+
+        RebuildCurve();
+        NotifyControlPointsChanged();
+    }
+}
+
+void UCurveScribeScene::PostEditUndo()
+{
+    Super::PostEditUndo();
+    RebuildCurve();
+    NotifyControlPointsChanged();
 }
 #endif
 
 void UCurveScribeScene::BindToOwner()
 {
-    // 避免重复绑定
-    if (DelegateHandle.IsValid())
-    {
-        return;
-    }
-
-    ACurveScribeActor* OwnerActor = Cast<ACurveScribeActor>(GetOwner());
-    if (OwnerActor)
-    {
-        DelegateHandle = OwnerActor->OnControlPointsChanged.AddUObject(this, &UCurveScribeScene::HandleControlPointsChanged);
-    }
+    // Scene 现在是数据权威源，无需再绑定到 Actor 的委托
+    // 只做初始曲线重建
+    RebuildCurve();
 }
 
-void UCurveScribeScene::HandleControlPointsChanged(const TArray<FVector>& InControlPoints)
+void UCurveScribeScene::RebuildCurve()
 {
-    RebuildCurve(InControlPoints);
-}
-
-void UCurveScribeScene::RebuildCurve(const TArray<FVector>& InControlPoints)
-{
-    if (InControlPoints.Num() < 2 || !SplineComponent)
+    if (ControlPoints.Num() < 2 || !SplineComponent)
     {
         return;
     }
@@ -198,7 +287,7 @@ void UCurveScribeScene::RebuildCurve(const TArray<FVector>& InControlPoints)
     for (int32 i = 0; i <= CurveResolution; ++i)
     {
         float T = static_cast<float>(i) / static_cast<float>(CurveResolution);
-        CurvePoints.Add(CalculateBezierPoint(InControlPoints, T));
+        CurvePoints.Add(CalculateBezierPoint(ControlPoints, T));
     }
 
     SplineComponent->ClearSplinePoints(false);
@@ -210,7 +299,7 @@ void UCurveScribeScene::RebuildCurve(const TArray<FVector>& InControlPoints)
     SplineComponent->UpdateSpline();
 
     RebuildCorridor(CurvePoints);
-    RebuildRandomInCorridor(InControlPoints);
+    RebuildRandomInCorridor(ControlPoints);
 }
 
 void UCurveScribeScene::RebuildCorridor(const TArray<FVector>& InCurvePoints)
@@ -339,4 +428,190 @@ FVector UCurveScribeScene::CalculateBezierPoint(const TArray<FVector>& Points, f
     }
 
     return TempPoints[0];
+}
+
+void UCurveScribeScene::FillPointsToTarget()
+{
+    if (ControlPoints.Num() == 0 || !BillboardComponentEnd || FillSegmentCount <= 0)
+    {
+        return;
+    }
+
+    const FVector LastPoint = ControlPoints.Last();
+    const FVector EndLocation = BillboardComponentEnd->GetRelativeLocation();
+    const FVector Direction = EndLocation - LastPoint;
+
+    if (Direction.Size() < KINDA_SMALL_NUMBER)
+    {
+        return;
+    }
+
+    Modify();
+
+    const FVector Step = Direction / (FillSegmentCount + 1);
+
+    for (int32 i = 1; i <= FillSegmentCount; ++i)
+    {
+        ControlPoints.Add(LastPoint + Step * i);
+    }
+
+    BillboardComponentEnd->SetRelativeLocation(ControlPoints.Last() + Step);
+    RebuildCurve();
+    NotifyControlPointsChanged();
+}
+
+void UCurveScribeScene::FillPointsRandomToTarget()
+{
+    if (ControlPoints.Num() == 0 || !BillboardComponentEnd || TargetStepDistance <= KINDA_SMALL_NUMBER)
+    {
+        return;
+    }
+
+    Modify();
+
+    const FVector EndPos = BillboardComponentEnd->GetRelativeLocation();
+
+    while (FVector::Dist(ControlPoints.Last(), EndPos) > TargetStepDistance * 1.2f)
+    {
+        FVector CurrentPoint = ControlPoints.Last();
+        FVector TargetDir = (EndPos - CurrentPoint).GetSafeNormal();
+
+        FRotator BaseRot = TargetDir.Rotation();
+        float RandomPitch = FMath::FRandRange(-MaxDeviationAngle, MaxDeviationAngle);
+        float RandomYaw = FMath::FRandRange(-MaxDeviationAngle, MaxDeviationAngle);
+
+        FVector NewDirection = (BaseRot + FRotator(RandomPitch, RandomYaw, 0.f)).Vector();
+        FVector NextPoint = CurrentPoint + (NewDirection * TargetStepDistance);
+        ControlPoints.Add(NextPoint);
+
+        if (ControlPoints.Num() > 500) break;
+    }
+
+    ControlPoints.Add(EndPos);
+    RebuildCurve();
+    NotifyControlPointsChanged();
+}
+
+void UCurveScribeScene::RandomOffsetControlPoints()
+{
+    if (ControlPoints.Num() < 3 || ControlPointRandomOffsetMax <= KINDA_SMALL_NUMBER)
+    {
+        return;
+    }
+
+    Modify();
+
+    const int32 Last = ControlPoints.Num() - 1;
+    const float MinR = FMath::Clamp(ControlPointRandomOffsetMin, 0.f, ControlPointRandomOffsetMax);
+
+    // 首末端保持不动，保证起止位置不变
+    for (int32 i = 1; i < Last; ++i)
+    {
+        // 切向：中心差分
+        FVector Tangent = (ControlPoints[i + 1] - ControlPoints[i - 1]).GetSafeNormal();
+        if (Tangent.IsNearlyZero())
+        {
+            Tangent = FVector::ForwardVector;
+        }
+
+        // 法平面基向量（与 Tangent 正交）
+        FVector RightDir = FVector::CrossProduct(Tangent, FVector::UpVector).GetSafeNormal();
+        if (RightDir.IsNearlyZero())
+        {
+            RightDir = FVector::CrossProduct(Tangent, FVector::ForwardVector).GetSafeNormal();
+            if (RightDir.IsNearlyZero())
+            {
+                RightDir = FVector::RightVector;
+            }
+        }
+        const FVector NormalUp = FVector::CrossProduct(RightDir, Tangent).GetSafeNormal();
+
+        // 法平面极坐标：角度 [0, 2π)、半径 [Min, Max]
+        const float Angle = FMath::FRandRange(0.f, 2.f * PI);
+        const float Mag = FMath::FRandRange(MinR, ControlPointRandomOffsetMax);
+        const FVector OffsetDir = FMath::Cos(Angle) * RightDir + FMath::Sin(Angle) * NormalUp;
+
+        ControlPoints[i] += OffsetDir * Mag;
+    }
+
+    RebuildCurve();
+    NotifyControlPointsChanged();
+}
+
+void UCurveScribeScene::LoadFromDataAsset()
+{
+    if (!CurveData)
+    {
+        return;
+    }
+
+    Modify();
+
+    ControlPoints = CurveData->ControlPoints;
+    CurveResolution = CurveData->CurveResolution;
+    SplinePointType = CurveData->SplinePointType;
+    CorridorRadius = CurveData->CorridorRadius;
+    RandomOffsetMinRadius = CurveData->RandomOffsetMinRadius;
+
+    if (BillboardComponentEnd && ControlPoints.Num() > 0)
+    {
+        BillboardComponentEnd->SetRelativeLocation(
+            ControlPoints.Last() + FVector(100.0f, 0.0f, 0.0f));
+    }
+
+    RebuildCurve();
+    NotifyControlPointsChanged();
+}
+
+void UCurveScribeScene::SaveToDataAsset()
+{
+    if (!CurveData)
+    {
+        return;
+    }
+
+    CurveData->Modify();
+
+    CurveData->ControlPoints = ControlPoints;
+    CurveData->CurveResolution = CurveResolution;
+    CurveData->SplinePointType = SplinePointType;
+    CurveData->CorridorRadius = CorridorRadius;
+    CurveData->RandomOffsetMinRadius = RandomOffsetMinRadius;
+
+    CurveData->MarkPackageDirty();
+}
+
+void UCurveScribeScene::BakeTransformIntoControlPoints()
+{
+    const FTransform SceneRel = GetRelativeTransform();
+    if (SceneRel.Equals(FTransform::Identity))
+    {
+        return;
+    }
+
+    Modify();
+
+    // 控制点：把 Scene 的相对变换吸收进本地坐标
+    for (FVector& P : ControlPoints)
+    {
+        P = SceneRel.TransformPosition(P);
+    }
+
+    // Billboard：保持其在父空间下的位置
+    auto BakeBillboard = [&SceneRel](UBillboardComponent* B)
+    {
+        if (!B) { return; }
+        B->Modify();
+        const FVector NewLocal = SceneRel.TransformPosition(B->GetRelativeLocation());
+        B->SetRelativeLocation(NewLocal);
+    };
+    BakeBillboard(BillboardComponentBegin);
+    BakeBillboard(BillboardComponentEnd);
+
+    // 重置 Scene，使其与父级对齐
+    SetRelativeTransform(FTransform::Identity);
+
+    // 触发 spline 重建
+    RebuildCurve();
+    NotifyControlPointsChanged();
 }

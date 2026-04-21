@@ -3,7 +3,7 @@
 #include "CoreMinimal.h"
 #include "ComponentVisualizer.h"
 
-class ACurveScribeActor;
+class UCurveScribeScene;
 
 /**
  * 控制点 Hit Proxy，用于检测鼠标点击
@@ -23,6 +23,7 @@ struct HBezierControlPointHitProxy : public HComponentVisProxy
 /**
  * 贝塞尔曲线组件可视化工具
  * 负责：绘制控制点线框、处理点击选中、处理拖拽移动
+ * 直接操作 UCurveScribeScene，不再通过 ACurveScribeActor 中转
  */
 class FBezierCurveVisualizer : public FComponentVisualizer
 {
@@ -45,8 +46,8 @@ public:
     int32 GetSelectedControlPointIndex() const { return SelectedPointIndex; }
 
 private:
-    // 当前选中的 Actor 和控制点
-    TWeakObjectPtr<ACurveScribeActor> SelectedActor;
+    // 当前选中的 Scene 和控制点
+    TWeakObjectPtr<UCurveScribeScene> SelectedScene;
     int32 SelectedPointIndex = INDEX_NONE;
 
     // 控制点半径
