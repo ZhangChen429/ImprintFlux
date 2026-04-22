@@ -21,14 +21,22 @@ TSharedRef<IDetailCustomization> FCurveScribeSceneCustomization::MakeInstance()
 void FCurveScribeSceneCustomization::CustomizeDetails(IDetailLayoutBuilder& DetailBuilder)
 {
     DetailBuilder.GetObjectsBeingCustomized(SelectedObjects);
-
+    
+    TSharedRef<IPropertyHandle> CurveDataProperty = DetailBuilder.GetProperty(
+        GET_MEMBER_NAME_CHECKED(UCurveScribeScene, CurveData)
+    );
+    TSharedRef<IPropertyHandle> CircularTubeProperty = DetailBuilder.GetProperty(
+           GET_MEMBER_NAME_CHECKED(UCurveScribeScene, CircularTubeData)
+       );
     // 在 "Bezier Curve" 类别下添加自定义操作按钮
     IDetailCategoryBuilder& Category = DetailBuilder.EditCategory(
         TEXT("Bezier Curve"),
         LOCTEXT("BezierCurveCategory", "Bezier Curve"),
         ECategoryPriority::Important
     );
-
+ 
+    Category.AddProperty(CurveDataProperty);
+    Category.AddProperty(CircularTubeProperty);
     // 添加操作按钮行
     Category.AddCustomRow(LOCTEXT("ActionsRow", "Actions"))
         .WholeRowContent()
@@ -60,6 +68,7 @@ void FCurveScribeSceneCustomization::CustomizeDetails(IDetailLayoutBuilder& Deta
                 .ToolTipText(LOCTEXT("LoadDataTooltip", "从绑定的数据资产加载配置"))
                 .OnClicked(this, &FCurveScribeSceneCustomization::OnLoadFromDataAsset)
             ]
+            
         ];
 }
 

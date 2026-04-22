@@ -1,6 +1,7 @@
 #include "CurveScribeScene.h"
 #include "CurveScribeActor.h"
 #include "CurveScribeDataAsset.h"
+#include "Curves/CurveFloat.h"
 #include "GameFramework/Actor.h"
 #include "Components/SplineComponent.h"
 #include "Components/BillboardComponent.h"
@@ -98,7 +99,7 @@ void UCurveScribeScene::TickComponent(float DeltaTime, ELevelTick TickType,
     if (SplineComponent && bShowDebugCircles)
     {
         const int32 NumPoints = SplineComponent->GetNumberOfSplinePoints();
-        const float ClampedInnerR = FMath::Clamp(RandomOffsetMinRadius, 0.f, CorridorRadius);
+        const int32 LastIdx = NumPoints - 1;
         for (int32 i = 0; i < NumPoints; ++i)
         {
             FVector PointLocation = SplineComponent->GetLocationAtSplinePoint(i, ESplineCoordinateSpace::World);
@@ -106,11 +107,15 @@ void UCurveScribeScene::TickComponent(float DeltaTime, ELevelTick TickType,
             FVector RightAxis = PointRotation.GetAxisY();
             FVector UpAxis = PointRotation.GetAxisZ();
 
+            const float T = (LastIdx > 0) ? static_cast<float>(i) / static_cast<float>(LastIdx) : 0.f;
+            const float OuterR = GetCorridorRadiusAt(T);
+            const float InnerR = FMath::Clamp(GetMinOffsetRadiusAt(T), 0.f, OuterR);
+
             // 外圈：走廊半径
             DrawDebugCircle(
                 GetWorld(),
                 PointLocation,
-                CorridorRadius,
+                OuterR,
                 32,
                 DebugColor,
                 false,
@@ -123,12 +128,12 @@ void UCurveScribeScene::TickComponent(float DeltaTime, ELevelTick TickType,
             );
 
             // 内圈：随机最小偏移半径
-            if (ClampedInnerR > KINDA_SMALL_NUMBER)
+            if (InnerR > KINDA_SMALL_NUMBER)
             {
                 DrawDebugCircle(
                     GetWorld(),
                     PointLocation,
-                    ClampedInnerR,
+                    InnerR,
                     32,
                     DebugInnerColor,
                     false,
@@ -257,6 +262,11 @@ void UCurveScribeScene::PostEditChangeProperty(FPropertyChangedEvent& PropertyCh
         RebuildCurve();
         NotifyControlPointsChanged();
     }
+
+    if (PropertyName == GET_MEMBER_NAME_CHECKED(UCurveScribeScene, CircularTubeData))
+    {
+        RebuildCurve();
+    }
 }
 
 void UCurveScribeScene::PostEditUndo()
@@ -332,9 +342,12 @@ void UCurveScribeScene::RebuildCorridor(const TArray<FVector>& InCurvePoints)
             if (RightDir.IsNearlyZero()) { RightDir = FVector::RightVector; }
         }
 
+        const float T = (Last > 0) ? static_cast<float>(i) / static_cast<float>(Last) : 0.f;
+        const float RadiusAtT = GetCorridorRadiusAt(T);
+
         const FVector CenterLocal = InCurvePoints[i];
-        const FVector LeftLocal   = CenterLocal - RightDir * CorridorRadius;
-        const FVector RightLocal  = CenterLocal + RightDir * CorridorRadius;
+        const FVector LeftLocal   = CenterLocal - RightDir * RadiusAtT;
+        const FVector RightLocal  = CenterLocal + RightDir * RadiusAtT;
 
         SplineComponentLeft->AddSplinePoint(LeftLocal,   ESplineCoordinateSpace::Local, false);
         SplineComponentRight->AddSplinePoint(RightLocal, ESplineCoordinateSpace::Local, false);
@@ -386,10 +399,12 @@ void UCurveScribeScene::RebuildRandomInCorridor(const TArray<FVector>& InControl
             // 法平面的第二个基向量（与 Tangent、Right 正交）
             const FVector NormalUp = FVector::CrossProduct(RightDir, Tangent).GetSafeNormal();
 
-            // 在法平面内随机取方向和幅值：角度 [0, 2π)、幅值 [MinR, CorridorRadius]
-            const float MinR = FMath::Clamp(RandomOffsetMinRadius, 0.f, CorridorRadius);
+            // 在法平面内随机取方向和幅值：角度 [0, 2π)、幅值 [MinR, RadiusAtT]
+            const float T = (Last > 0) ? static_cast<float>(i) / static_cast<float>(Last) : 0.f;
+            const float RadiusAtT = GetCorridorRadiusAt(T);
+            const float MinR = FMath::Clamp(GetMinOffsetRadiusAt(T), 0.f, RadiusAtT);
             const float Angle = FMath::FRandRange(0.f, 2.f * PI);
-            const float RandMag = FMath::FRandRange(MinR, CorridorRadius);
+            const float RandMag = FMath::FRandRange(MinR, RadiusAtT);
             const FVector OffsetDir = FMath::Cos(Angle) * RightDir + FMath::Sin(Angle) * NormalUp;
             OffsetCPs.Add(InControlPoints[i] + OffsetDir * RandMag);
         }
@@ -407,6 +422,25 @@ void UCurveScribeScene::RebuildRandomInCorridor(const TArray<FVector>& InControl
 
     BuildOne(SplineComponentRandomA);
     BuildOne(SplineComponentRandomB);
+}
+
+float UCurveScribeScene::GetTubeScaleAt(float T) const
+{
+    if (!CircularTubeData)
+    {
+        return 1.f;
+    }
+    return CircularTubeData->GetFloatValue(FMath::Clamp(T, 0.f, 1.f));
+}
+
+float UCurveScribeScene::GetCorridorRadiusAt(float T) const
+{
+    return CorridorRadius * GetTubeScaleAt(T);
+}
+
+float UCurveScribeScene::GetMinOffsetRadiusAt(float T) const
+{
+    return RandomOffsetMinRadius * GetTubeScaleAt(T);
 }
 
 FVector UCurveScribeScene::CalculateBezierPoint(const TArray<FVector>& Points, float T) const

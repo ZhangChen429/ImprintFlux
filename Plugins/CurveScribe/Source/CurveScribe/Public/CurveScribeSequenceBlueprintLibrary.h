@@ -3,13 +3,13 @@
 #include "CoreMinimal.h"
 #include "Kismet/BlueprintFunctionLibrary.h"
 #include "Components/SplineComponent.h"
-#include "UEBlenderBlueprintLibrary.generated.h"
+#include "CurveScribeSequenceBlueprintLibrary.generated.h"
 
 /**
  * UEBlender 蓝图函数库
  */
 UCLASS()
-class CURVESCRIBE_API UUEBlenderBlueprintLibrary : public UBlueprintFunctionLibrary
+class CURVESCRIBE_API UCurveScribeSequenceBlueprintLibrary : public UBlueprintFunctionLibrary
 {
     GENERATED_BODY()
 

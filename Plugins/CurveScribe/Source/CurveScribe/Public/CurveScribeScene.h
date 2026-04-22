@@ -173,14 +173,15 @@ public:
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "BezierData", meta = (DisplayName = "曲线数据资产"))
     TObjectPtr<UCurveScribeDataAsset> CurveData;
     
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "BezierData", meta = (DisplayName = "曲线数据资产"))
+    TObjectPtr<UCurveFloat> CircularTubeData;
+    
     UFUNCTION(BlueprintCallable, Category = "BezierData", meta = (DisplayName = "从数据资产加载"))
     void LoadFromDataAsset();
 
     UFUNCTION(BlueprintCallable, Category = "BezierData", meta = (DisplayName = "保存到数据资产"))
     void SaveToDataAsset();
-
-    // 把 Scene 的 RelativeTransform 烘焙进 ControlPoints / Billboard 本地位置，
-    // 然后把 Scene 重置为 identity。结果：曲线视觉位置不变，MakeEditWidget 与曲线重新对齐。
+    
     UFUNCTION(BlueprintCallable, Category = "BezierActions|Transform", meta = (DisplayName = "把 Scene Transform 烘焙到控制点"))
     void BakeTransformIntoControlPoints();
 
@@ -197,4 +198,13 @@ protected:
 
 private:
     FVector CalculateBezierPoint(const TArray<FVector>& Points, float T) const;
+
+    // 归一化参数 T∈[0,1] 处的管径乘数；CircularTubeData 为空时返回 1
+    float GetTubeScaleAt(float T) const;
+
+    // 沿曲线归一化参数 T∈[0,1] 处的走廊半径：CorridorRadius * GetTubeScaleAt(T)
+    float GetCorridorRadiusAt(float T) const;
+
+    // 沿曲线归一化参数 T∈[0,1] 处的最小偏移半径：RandomOffsetMinRadius * GetTubeScaleAt(T)
+    float GetMinOffsetRadiusAt(float T) const;
 };

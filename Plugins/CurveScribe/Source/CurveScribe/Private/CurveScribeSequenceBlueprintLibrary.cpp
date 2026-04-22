@@ -1,9 +1,9 @@
-#include "UEBlenderBlueprintLibrary.h"
+#include "CurveScribeSequenceBlueprintLibrary.h"
 #include "Components/SplineComponent.h"
 #include "GameFramework/Actor.h"
 #include "Engine/World.h"
 
-USplineComponent* UUEBlenderBlueprintLibrary::CreateSplineFromTransforms(
+USplineComponent* UCurveScribeSequenceBlueprintLibrary::CreateSplineFromTransforms(
     UObject* WorldContext,
     const TArray<FTransform>& Transforms,
     bool bClosedLoop,
@@ -41,7 +41,7 @@ USplineComponent* UUEBlenderBlueprintLibrary::CreateSplineFromTransforms(
     return SplineComponent;
 }
 
-void UUEBlenderBlueprintLibrary::UpdateSplineFromTransforms(
+void UCurveScribeSequenceBlueprintLibrary::UpdateSplineFromTransforms(
     USplineComponent* SplineComponent,
     const TArray<FTransform>& Transforms,
     bool bClosedLoop)
@@ -82,7 +82,7 @@ void UUEBlenderBlueprintLibrary::UpdateSplineFromTransforms(
     SplineComponent->UpdateSpline();
 }
 
-AActor* UUEBlenderBlueprintLibrary::CreateSplineActorFromTransforms(
+AActor* UCurveScribeSequenceBlueprintLibrary::CreateSplineActorFromTransforms(
     UObject* WorldContext,
     const TArray<FTransform>& Transforms,
     bool bClosedLoop)
@@ -122,7 +122,7 @@ AActor* UUEBlenderBlueprintLibrary::CreateSplineActorFromTransforms(
     return SplineActor;
 }
 
-FTransform UUEBlenderBlueprintLibrary::GetSplineTransformAtDistance(
+FTransform UCurveScribeSequenceBlueprintLibrary::GetSplineTransformAtDistance(
     USplineComponent* SplineComponent,
     float Distance,
     TEnumAsByte<ESplineCoordinateSpace::Type> CoordinateSpace)
@@ -155,7 +155,7 @@ FTransform UUEBlenderBlueprintLibrary::GetSplineTransformAtDistance(
     return FTransform(Rotation.Quaternion(), Location, Scale);
 }
 
-TArray<FTransform> UUEBlenderBlueprintLibrary::ActorsToTransforms(const TArray<AActor*>& Actors)
+TArray<FTransform> UCurveScribeSequenceBlueprintLibrary::ActorsToTransforms(const TArray<AActor*>& Actors)
 {
     TArray<FTransform> Transforms;
     Transforms.Reserve(Actors.Num());
