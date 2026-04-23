@@ -77,10 +77,7 @@ public:
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Debug", meta = (DisplayName = "显示 Debug 圆环"))
     bool bShowDebugCircles = true;
-
-    UPROPERTY(EditAnywhere, Category = "Debug")
-    FColor DebugColor = FColor::Cyan;
-
+    
     UPROPERTY(EditAnywhere, Category = "Debug")
     FColor DebugInnerColor = FColor::Red;
 
@@ -192,6 +189,7 @@ protected:
     virtual void OnRegister() override;
 
 #if WITH_EDITOR
+    virtual void PreEditChange(FProperty* PropertyAboutToChange) override;
     virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
     virtual void PostEditUndo() override;
 #endif
@@ -207,4 +205,7 @@ private:
 
     // 沿曲线归一化参数 T∈[0,1] 处的最小偏移半径：RandomOffsetMinRadius * GetTubeScaleAt(T)
     float GetMinOffsetRadiusAt(float T) const;
+
+    // PreEditChange 缓存：RandomOffsetMinRadius 越界时回滚到此值
+    float PreEditRandomOffsetMinRadius = 0.f;
 };

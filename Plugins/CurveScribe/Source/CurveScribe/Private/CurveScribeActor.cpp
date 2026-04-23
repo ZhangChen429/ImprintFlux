@@ -38,27 +38,3 @@ void ACurveScribeActor::OnConstruction(const FTransform& Transform)
         CurveTargetScene->NotifyControlPointsChanged();
     }
 }
-
-void ACurveScribeActor::FillPointsToTarget()
-{
-    if (CurveTargetScene)
-    {
-        CurveTargetScene->FillPointsToTarget();
-    }
-}
-
-void ACurveScribeActor::FillPointsRandomToTarget()
-{
-    if (CurveTargetScene)
-    {
-        CurveTargetScene->FillPointsRandomToTarget();
-    }
-}
-
-void ACurveScribeActor::RandomOffsetControlPoints()
-{
-    if (CurveTargetScene)
-    {
-        CurveTargetScene->RandomOffsetControlPoints();
-    }
-}

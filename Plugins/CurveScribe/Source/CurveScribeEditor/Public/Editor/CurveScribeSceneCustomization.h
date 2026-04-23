@@ -19,15 +19,17 @@ public:
 private:
     // 获取当前编辑的 Scene（支持多选时取第一个）
     TWeakObjectPtr<UCurveScribeScene> GetEditedScene() const;
-
-    // 重建曲线按钮回调
-    FReply OnRebuildCurve();
     
     // 清除走廊按钮回调
-    FReply SaveCurveScribeData();
+    FReply CurveScribeSaveCurveScribeData();
 
     // 从数据资产加载按钮回调
-    FReply OnLoadFromDataAsset();
+    FReply CurveScribeOnLoadFromDataAsset();
+    FReply CurveScribeFillPointsRandomToTarget();
+    FReply CurveScribeRandomOffsetControlPoints();
+
+    //均匀填充
+    FReply CurveScribeFillPointsToTarget();
 
     // 选中的对象列表
     TArray<TWeakObjectPtr<UObject>> SelectedObjects;

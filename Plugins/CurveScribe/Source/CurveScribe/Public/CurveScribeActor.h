@@ -20,17 +20,6 @@ class CURVESCRIBE_API ACurveScribeActor : public AActor
 
 public:
     ACurveScribeActor();
-    
-    // ── 操作函数 ──
-    UFUNCTION(BlueprintCallable, CallInEditor, Category = "BezierFill", meta = (DisplayName = "根据目标点位生成沿线控制点"))
-    void FillPointsToTarget();
-
-    UFUNCTION(BlueprintCallable, CallInEditor, Category = "BezierFill", meta = (DisplayName = "根据目标点位生成偏转控制点"))
-    void FillPointsRandomToTarget();
-
-    UFUNCTION(BlueprintCallable, CallInEditor, Category = "BezierFill", meta = (DisplayName = "对所有控制点施加随机偏移"))
-    void RandomOffsetControlPoints();
-    
     // ── 组件 ──
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Bezier Curve")
     TObjectPtr<UCurveScribeScene> CurveTargetScene;

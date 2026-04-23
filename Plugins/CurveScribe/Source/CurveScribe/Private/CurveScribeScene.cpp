@@ -95,7 +95,7 @@ void UCurveScribeScene::TickComponent(float DeltaTime, ELevelTick TickType,
 
     const FTransform SceneXform = GetComponentTransform();
 
-    // ── 走廊 Debug 圆环 ──
+    // ── 走廊 Debug 圆环（只画随机最小偏移半径） ──
     if (SplineComponent && bShowDebugCircles)
     {
         const int32 NumPoints = SplineComponent->GetNumberOfSplinePoints();
@@ -108,32 +108,14 @@ void UCurveScribeScene::TickComponent(float DeltaTime, ELevelTick TickType,
             FVector UpAxis = PointRotation.GetAxisZ();
 
             const float T = (LastIdx > 0) ? static_cast<float>(i) / static_cast<float>(LastIdx) : 0.f;
-            const float OuterR = GetCorridorRadiusAt(T);
-            const float InnerR = FMath::Clamp(GetMinOffsetRadiusAt(T), 0.f, OuterR);
+            const float MinR = GetMinOffsetRadiusAt(T);
 
-            // 外圈：走廊半径
-            DrawDebugCircle(
-                GetWorld(),
-                PointLocation,
-                OuterR,
-                32,
-                DebugColor,
-                false,
-                -1.f,
-                0,
-                1.5f,
-                RightAxis,
-                UpAxis,
-                false
-            );
-
-            // 内圈：随机最小偏移半径
-            if (InnerR > KINDA_SMALL_NUMBER)
+            if (MinR > KINDA_SMALL_NUMBER)
             {
                 DrawDebugCircle(
                     GetWorld(),
                     PointLocation,
-                    InnerR,
+                    MinR,
                     32,
                     DebugInnerColor,
                     false,
@@ -229,6 +211,17 @@ void UCurveScribeScene::NotifyControlPointsChanged()
 }
 
 #if WITH_EDITOR
+void UCurveScribeScene::PreEditChange(FProperty* PropertyAboutToChange)
+{
+    Super::PreEditChange(PropertyAboutToChange);
+
+    if (PropertyAboutToChange &&
+        PropertyAboutToChange->GetFName() == GET_MEMBER_NAME_CHECKED(UCurveScribeScene, RandomOffsetMinRadius))
+    {
+        PreEditRandomOffsetMinRadius = RandomOffsetMinRadius;
+    }
+}
+
 void UCurveScribeScene::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
 {
     Super::PostEditChangeProperty(PropertyChangedEvent);
@@ -266,6 +259,14 @@ void UCurveScribeScene::PostEditChangeProperty(FPropertyChangedEvent& PropertyCh
     if (PropertyName == GET_MEMBER_NAME_CHECKED(UCurveScribeScene, CircularTubeData))
     {
         RebuildCurve();
+    }
+
+    if (PropertyName == GET_MEMBER_NAME_CHECKED(UCurveScribeScene, RandomOffsetMinRadius))
+    {
+        if (RandomOffsetMinRadius > CorridorRadius)
+        {
+            RandomOffsetMinRadius = PreEditRandomOffsetMinRadius;
+        }
     }
 }
 
