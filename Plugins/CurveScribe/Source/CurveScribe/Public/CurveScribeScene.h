@@ -170,7 +170,7 @@ public:
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "BezierData", meta = (DisplayName = "曲线数据资产"))
     TObjectPtr<UCurveScribeDataAsset> CurveData;
     
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "BezierData", meta = (DisplayName = "曲线数据资产"))
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "BezierData", meta = (DisplayName = "曲线数据资产，建议为空，直接调整DataAsset中的资产是合适的"))
     TObjectPtr<UCurveFloat> CircularTubeData;
     
     UFUNCTION(BlueprintCallable, Category = "BezierData", meta = (DisplayName = "从数据资产加载"))
@@ -184,6 +184,12 @@ public:
 
     // 绑定到 Owner Actor 的委托
     void BindToOwner();
+
+    // 绑定 CurveData 变更委托（实时更新圆管半径等）
+    void BindToDataAsset();
+
+    // CurveData 变更回调
+    void OnDataAssetChanged();
 
 protected:
     virtual void OnRegister() override;

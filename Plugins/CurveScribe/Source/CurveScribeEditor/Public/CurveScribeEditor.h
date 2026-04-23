@@ -7,7 +7,7 @@ class FBlenderLiveLink;
 class FMonitoredProcess;
 class FAlterMeshBridge;
 class FBezierCurveVisualizer;
-DECLARE_LOG_CATEGORY_EXTERN(LogUEBlenderTool, Log, All);
+DECLARE_LOG_CATEGORY_EXTERN(LogCurveScribeTool, Log, All);
 
 class FCurveScribeEditorModule : public IModuleInterface
 {

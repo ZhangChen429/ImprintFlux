@@ -3,6 +3,7 @@
 #include "CoreMinimal.h"
 #include "UObject/Object.h"
 #include "Components/SplineComponent.h"
+#include "Curves/RichCurve.h"
 #include "CurveScribeDataAsset.generated.h"
 
 /**
@@ -14,6 +15,9 @@ class CURVESCRIBE_API UCurveScribeDataAsset : public UDataAsset
 {
 	GENERATED_BODY()
 public:
+	
+	UCurveScribeDataAsset();
+	
 	// ── 控制点 ──
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Bezier", meta = (MakeEditWidget = true,DisplayName = "控制点位置"))
 	TArray<FVector> ControlPoints;
@@ -42,8 +46,22 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Bezier", meta = (ClampMin = "0", DisplayName = "随机最小偏移半径"))
 	float RandomOffsetMinRadius = 10.0f;
 
+	// ── 随机 A/B 样条的偏移方式 ──
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Bezier", meta = (DisplayName = "用 Noise 采样替代纯随机"))
+	bool bUseNoiseOffset = true;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Bezier", meta = (DisplayName = "Noise 频率（沿曲线 wiggle 次数）", ClampMin = "0.1"))
+	float NoiseFrequency = 3.0f;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Bezier", meta = (DisplayName = "Noise 种子 A"))
+	float NoiseSeedA = 0.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Bezier", meta = (DisplayName = "Noise 种子 B"))
+	float NoiseSeedB = 100.f;
+
+	// ── 沿弧长 T∈[0,1] 的管径缩放曲线（inline RichCurve，替代外部 UCurveFloat 依赖） ──
+	UPROPERTY(EditAnywhere, Category = "Bezier", DisplayName = "管径缩放曲线")
+	FRichCurve TubeScaleCurve;
 
 #if WITH_EDITOR
 	DECLARE_MULTICAST_DELEGATE(FOnBezierDataChanged);

@@ -35,7 +35,9 @@ public class CurveScribeEditor : ModuleRules
                 "GeometryCore",
                 "MeshUtilities",
                 "UnrealEd",
-                "Kismet"
+                "Kismet",
+                "AssetDefinition",
+                "CurveEditor"
             }
         );
     }

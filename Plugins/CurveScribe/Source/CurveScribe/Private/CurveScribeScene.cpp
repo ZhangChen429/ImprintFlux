@@ -261,6 +261,13 @@ void UCurveScribeScene::PostEditChangeProperty(FPropertyChangedEvent& PropertyCh
         RebuildCurve();
     }
 
+    if (PropertyName == GET_MEMBER_NAME_CHECKED(UCurveScribeScene, CurveData))
+    {
+        // CurveData 变更时重新绑定委托
+        BindToDataAsset();
+        RebuildCurve();
+    }
+
     if (PropertyName == GET_MEMBER_NAME_CHECKED(UCurveScribeScene, RandomOffsetMinRadius))
     {
         if (RandomOffsetMinRadius > CorridorRadius)
@@ -282,6 +289,25 @@ void UCurveScribeScene::BindToOwner()
 {
     // Scene 现在是数据权威源，无需再绑定到 Actor 的委托
     // 只做初始曲线重建
+    RebuildCurve();
+
+    // 绑定 CurveData 变更委托
+    BindToDataAsset();
+}
+
+void UCurveScribeScene::BindToDataAsset()
+{
+    if (CurveData)
+    {
+#if WITH_EDITOR
+        CurveData->OnDataChanged.AddUObject(this, &UCurveScribeScene::OnDataAssetChanged);
+#endif
+    }
+}
+
+void UCurveScribeScene::OnDataAssetChanged()
+{
+    // 数据资产变更时重建曲线（更新圆管半径等）
     RebuildCurve();
 }
 
@@ -362,7 +388,13 @@ void UCurveScribeScene::RebuildCorridor(const TArray<FVector>& InCurvePoints)
 
 void UCurveScribeScene::RebuildRandomInCorridor(const TArray<FVector>& InControlPoints)
 {
-    auto BuildOne = [this, &InControlPoints](USplineComponent* Spline)
+    // 从 DataAsset 读 noise 参数；没配 DataAsset 就回退到纯随机（保留原行为）
+    const bool  bUseNoise  = CurveData ? CurveData->bUseNoiseOffset : true;
+    const float NoiseFreq  = CurveData ? CurveData->NoiseFrequency  : 3.0f;
+    const float SeedA      = CurveData ? CurveData->NoiseSeedA      : 0.f;
+    const float SeedB      = CurveData ? CurveData->NoiseSeedB      : 100.f;
+
+    auto BuildOne = [this, &InControlPoints, bUseNoise, NoiseFreq](USplineComponent* Spline, float SeedOffset)
     {
         if (!Spline) { return; }
         Spline->ClearSplinePoints(false);
@@ -373,7 +405,7 @@ void UCurveScribeScene::RebuildRandomInCorridor(const TArray<FVector>& InControl
             return;
         }
 
-        // 对每个贝塞尔控制点做随机偏移（首末端保持不动，保证起止点一致）
+        // 对每个贝塞尔控制点做偏移（首末端保持不动，保证起止点一致）
         const int32 Last = InControlPoints.Num() - 1;
         TArray<FVector> OffsetCPs;
         OffsetCPs.Reserve(InControlPoints.Num());
@@ -385,11 +417,8 @@ void UCurveScribeScene::RebuildRandomInCorridor(const TArray<FVector>& InControl
                 continue;
             }
 
-            FVector Tangent;
-            if (i == 0)         { Tangent = InControlPoints[1] - InControlPoints[0]; }
-            else if (i == Last) { Tangent = InControlPoints[Last] - InControlPoints[Last - 1]; }
-            else                { Tangent = InControlPoints[i + 1] - InControlPoints[i - 1]; }
-            Tangent = Tangent.GetSafeNormal();
+            // 中心差分切向
+            FVector Tangent = (InControlPoints[i + 1] - InControlPoints[i - 1]).GetSafeNormal();
 
             FVector RightDir = FVector::CrossProduct(Tangent, FVector::UpVector).GetSafeNormal();
             if (RightDir.IsNearlyZero())
@@ -400,12 +429,27 @@ void UCurveScribeScene::RebuildRandomInCorridor(const TArray<FVector>& InControl
             // 法平面的第二个基向量（与 Tangent、Right 正交）
             const FVector NormalUp = FVector::CrossProduct(RightDir, Tangent).GetSafeNormal();
 
-            // 在法平面内随机取方向和幅值：角度 [0, 2π)、幅值 [MinR, RadiusAtT]
             const float T = (Last > 0) ? static_cast<float>(i) / static_cast<float>(Last) : 0.f;
             const float RadiusAtT = GetCorridorRadiusAt(T);
             const float MinR = FMath::Clamp(GetMinOffsetRadiusAt(T), 0.f, RadiusAtT);
-            const float Angle = FMath::FRandRange(0.f, 2.f * PI);
-            const float RandMag = FMath::FRandRange(MinR, RadiusAtT);
+
+            float Angle;
+            float RandMag;
+            if (bUseNoise)
+            {
+                // Perlin 1D 返回 [-1, 1]，沿 T 连续 → 相邻控制点偏移相近
+                const float Phase   = T * NoiseFreq + SeedOffset;
+                const float AngleN  = FMath::PerlinNoise1D(Phase);
+                const float RadiusN = FMath::PerlinNoise1D(Phase + 50.f); // 错开频道
+                Angle   = (AngleN * 0.5f + 0.5f) * 2.f * PI;
+                RandMag = FMath::Lerp(MinR, RadiusAtT, RadiusN * 0.5f + 0.5f);
+            }
+            else
+            {
+                Angle   = FMath::FRandRange(0.f, 2.f * PI);
+                RandMag = FMath::FRandRange(MinR, RadiusAtT);
+            }
+
             const FVector OffsetDir = FMath::Cos(Angle) * RightDir + FMath::Sin(Angle) * NormalUp;
             OffsetCPs.Add(InControlPoints[i] + OffsetDir * RandMag);
         }
@@ -421,17 +465,27 @@ void UCurveScribeScene::RebuildRandomInCorridor(const TArray<FVector>& InControl
         Spline->UpdateSpline();
     };
 
-    BuildOne(SplineComponentRandomA);
-    BuildOne(SplineComponentRandomB);
+    BuildOne(SplineComponentRandomA, SeedA);
+    BuildOne(SplineComponentRandomB, SeedB);
 }
 
 float UCurveScribeScene::GetTubeScaleAt(float T) const
 {
-    if (!CircularTubeData)
+    const float ClampedT = FMath::Clamp(T, 0.f, 1.f);
+
+    // 优先使用 DataAsset 内置的 TubeScaleCurve（inline FRichCurve）
+    if (CurveData && CurveData->TubeScaleCurve.GetNumKeys() > 0)
     {
-        return 1.f;
+        return CurveData->TubeScaleCurve.Eval(ClampedT, 1.f);
     }
-    return CircularTubeData->GetFloatValue(FMath::Clamp(T, 0.f, 1.f));
+
+    // 回退到外部 UCurveFloat 引用（保留，用于旧资产/无 DataAsset 场景）
+    if (CircularTubeData)
+    {
+        return CircularTubeData->GetFloatValue(ClampedT);
+    }
+
+    return 1.f;
 }
 
 float UCurveScribeScene::GetCorridorRadiusAt(float T) const

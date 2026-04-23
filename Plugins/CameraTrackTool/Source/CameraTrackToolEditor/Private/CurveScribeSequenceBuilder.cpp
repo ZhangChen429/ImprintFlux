@@ -15,6 +15,13 @@
 
 #include "Editor.h"
 #include "Engine/World.h"
+#include "Tracks/MovieScene3DTransformTrack.h"
+#include "Tracks/MovieSceneCameraCutTrack.h"
+#include "Sections/MovieSceneCameraCutSection.h"
+#include "Tracks/MovieSceneSpawnTrack.h"
+#include "Sections/MovieSceneSpawnSection.h"
+#include "Components/SplineComponent.h"
+#include "CurveScribeScene.h"
 
 bool UCurveScribeSequenceBuilder::CreateSequenceWithCameraAndCurveActor(
     ACurveScribeActor* CurveActor,
@@ -88,22 +95,6 @@ bool UCurveScribeSequenceBuilder::CreateSequenceWithCameraAndCurveActor(
         }
         Sequence->Initialize();
 
-        // 2. 生成 CineCameraActor
-        FActorSpawnParameters SpawnParams;
-        SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
-        ACineCameraActor* Camera = World->SpawnActor<ACineCameraActor>(
-            ACineCameraActor::StaticClass(),
-            CurveActor->GetActorTransform(),
-            SpawnParams);
-        if (!Camera)
-        {
-            UE_LOG(LogTemp, Warning, TEXT("[CurveScribeSequenceBuilder] SpawnActor<ACineCameraActor> failed for %s"),
-                   *AssetName);
-            bAllSucceeded = false;
-            continue;
-        }
-        Camera->SetActorLabel(AssetName + TEXT("_Camera"));
-
         UMovieScene* MovieScene = Sequence->GetMovieScene();
         if (!MovieScene)
         {
@@ -120,10 +111,91 @@ bool UCurveScribeSequenceBuilder::CreateSequenceWithCameraAndCurveActor(
             MovieScene->SetPlaybackRange(TRange<FFrameNumber>(StartFrame, EndFrame));
         }
 
-        // 4. 绑定 Camera 与 CurveActor
-        const FGuid CameraGuid = MovieScene->AddPossessable(Camera->GetActorLabel(), Camera->GetClass());
-        Sequence->BindPossessableObject(CameraGuid, *Camera, World);
+        // 4. 添加 Camera 为 Spawnable（不在关卡中生成，由 Sequencer 控制）
+        const FString CameraName = AssetName + TEXT("_Camera");
+        ACineCameraActor* CameraTemplate = NewObject<ACineCameraActor>(MovieScene, ACineCameraActor::StaticClass(), *CameraName);
+        FGuid CameraGuid = MovieScene->AddSpawnable(CameraName, *CameraTemplate);
+        if (!CameraGuid.IsValid())
+        {
+            UE_LOG(LogTemp, Warning, TEXT("[CurveScribeSequenceBuilder] 添加 Camera Spawnable 失败: %s"), *AssetName);
+            bAllSucceeded = false;
+            continue;
+        }
 
+        // 获取主 SplineComponent 起始点的切线方向，用于设置相机初始朝向
+        FVector TangentDirection = FVector::XAxisVector;
+        FVector InitialLocation = CurveActor->GetActorLocation();
+        if (UCurveScribeScene* CurveScene = CurveActor->CurveTargetScene)
+        {
+            if (USplineComponent* Spline = CurveScene->SplineComponent)
+            {
+                if (Spline->GetNumberOfSplinePoints() >= 2)
+                {
+                    TangentDirection = Spline->GetTangentAtSplinePoint(0, ESplineCoordinateSpace::World).GetSafeNormal();
+                    InitialLocation = Spline->GetLocationAtSplinePoint(0, ESplineCoordinateSpace::World);
+                }
+            }
+        }
+
+        // 计算让相机 -X 轴朝向切线方向的旋转
+        FRotator InitialRotation = FRotationMatrix::MakeFromX(-TangentDirection).Rotator();
+
+        // 添加 Spawn Track，控制相机在播放开始时生成、结束时销毁
+        if (UMovieSceneSpawnTrack* SpawnTrack = MovieScene->AddTrack<UMovieSceneSpawnTrack>(CameraGuid))
+        {
+            UMovieSceneSpawnSection* SpawnSection = Cast<UMovieSceneSpawnSection>(SpawnTrack->CreateNewSection());
+            if (SpawnSection)
+            {
+                SpawnSection->SetRange(MovieScene->GetPlaybackRange());
+                // 在播放范围内设置为 Spawned
+                TArrayView<FMovieSceneBoolChannel*> BoolChannels = SpawnSection->GetChannelProxy().GetChannels<FMovieSceneBoolChannel>();
+                if (BoolChannels.Num() > 0)
+                {
+                    FMovieSceneBoolChannel* SpawnChannel = BoolChannels[0];
+                    FFrameNumber StartTime = MovieScene->GetPlaybackRange().GetLowerBoundValue();
+                    FFrameNumber EndTime = MovieScene->GetPlaybackRange().GetUpperBoundValue();
+                  
+                }
+                SpawnTrack->AddSection(*SpawnSection);
+            }
+        }
+
+        // 添加 TransformTrack：设置初始位置和旋转
+        UMovieScene3DTransformTrack* TransformTrack = MovieScene->AddTrack<UMovieScene3DTransformTrack>(CameraGuid);
+        if (TransformTrack)
+        {
+            UMovieScene3DTransformSection* TransformSection = Cast<UMovieScene3DTransformSection>(TransformTrack->CreateNewSection());
+            if (TransformSection)
+            {
+                TransformSection->SetRange(MovieScene->GetPlaybackRange());
+                TransformTrack->AddSection(*TransformSection);
+                TArrayView<FMovieSceneFloatChannel*> Channels = TransformSection->GetChannelProxy().GetChannels<FMovieSceneFloatChannel>();
+                FFrameNumber StartTime = MovieScene->GetPlaybackRange().GetLowerBoundValue();
+
+                // 位置通道：初始位置在曲线起点
+                if (Channels.IsValidIndex(0)) Channels[0]->AddConstantKey(StartTime, InitialLocation.X);
+                if (Channels.IsValidIndex(1)) Channels[1]->AddConstantKey(StartTime, InitialLocation.Y);
+                if (Channels.IsValidIndex(2)) Channels[2]->AddConstantKey(StartTime, InitialLocation.Z);
+
+                // 旋转通道：初始朝向切线方向
+                if (Channels.IsValidIndex(3)) Channels[3]->AddConstantKey(StartTime, InitialRotation.Roll);
+                if (Channels.IsValidIndex(4)) Channels[4]->AddConstantKey(StartTime, InitialRotation.Pitch);
+                if (Channels.IsValidIndex(5)) Channels[5]->AddConstantKey(StartTime, InitialRotation.Yaw);
+            }
+        }
+
+        // 添加摄像机剪切轨道
+        if (UMovieSceneCameraCutTrack* CameraCutTrack = MovieScene->AddTrack<UMovieSceneCameraCutTrack>())
+        {
+            UMovieSceneCameraCutSection* CameraCutSection = Cast<UMovieSceneCameraCutSection>(CameraCutTrack->CreateNewSection());
+            if (CameraCutSection)
+            {
+                CameraCutSection->SetRange(MovieScene->GetPlaybackRange());
+                CameraCutSection->SetCameraBindingID(FMovieSceneObjectBindingID(CameraGuid));
+                CameraCutTrack->AddSection(*CameraCutSection);
+            }
+        }
+        
         const FGuid CurveGuid = MovieScene->AddPossessable(CurveActor->GetActorLabel(), CurveActor->GetClass());
         Sequence->BindPossessableObject(CurveGuid, *CurveActor, World);
 
@@ -139,11 +211,11 @@ bool UCurveScribeSequenceBuilder::CreateSequenceWithCameraAndCurveActor(
         }
 
         OutSequences.Add(Sequence);
-        OutSpawnedCameras.Add(Camera);
+        // Camera 是 Spawnable，不在关卡中生成，不返回指针
 
         UE_LOG(LogTemp, Log,
-               TEXT("[CurveScribeSequenceBuilder] Created %s/%s; Camera=%s; Spline=%s"),
-               *SequencePackagePath, *AssetName, *Camera->GetName(), *SplineName.ToString());
+               TEXT("[CurveScribeSequenceBuilder] Created %s/%s; CameraSpawnable=%s; Spline=%s"),
+               *SequencePackagePath, *AssetName, *CameraName, *SplineName.ToString());
     }
 
     return bAllSucceeded;
@@ -166,32 +238,39 @@ bool UCurveScribeSequenceBuilder::AddPathTrackFromCurveActor(
         return false;
     }
 
-    // 从 Possessable 中按类查找：第一个 ACineCameraActor 和第一个 ACurveScribeActor
+    // 从 Spawnable 中查找 Camera，从 Possessable 中查找 CurveActor
     FGuid CameraBindingGuid;
     FGuid CurveActorBindingGuid;
+
+    // 查找 Camera Spawnable
+    const int32 SpawnableCount = MovieScene->GetSpawnableCount();
+    for (int32 i = 0; i < SpawnableCount; ++i)
+    {
+        const FMovieSceneSpawnable& Spawnable = MovieScene->GetSpawnable(i);
+        if (Spawnable.GetObjectTemplate() && Spawnable.GetObjectTemplate()->GetClass()->IsChildOf(ACineCameraActor::StaticClass()))
+        {
+            CameraBindingGuid = Spawnable.GetGuid();
+            break;
+        }
+    }
+
+    // 查找 CurveActor Possessable
     const int32 PossessableCount = MovieScene->GetPossessableCount();
     for (int32 i = 0; i < PossessableCount; ++i)
     {
         const FMovieScenePossessable& Possessable = MovieScene->GetPossessable(i);
-        const   UClass* PossessedClass = Possessable.GetPossessedObjectClass();
-        if (!PossessedClass) { continue; }
-
-        if (!CameraBindingGuid.IsValid() && PossessedClass->IsChildOf(ACineCameraActor::StaticClass()))
-        {
-            CameraBindingGuid = Possessable.GetGuid();
-        }
-        else if (!CurveActorBindingGuid.IsValid() && PossessedClass->IsChildOf(ACurveScribeActor::StaticClass()))
+        const UClass* PossessedClass = Possessable.GetPossessedObjectClass();
+        if (PossessedClass && PossessedClass->IsChildOf(ACurveScribeActor::StaticClass()))
         {
             CurveActorBindingGuid = Possessable.GetGuid();
+            break;
         }
-
-        if (CameraBindingGuid.IsValid() && CurveActorBindingGuid.IsValid()) { break; }
     }
 
     if (!CameraBindingGuid.IsValid() || !CurveActorBindingGuid.IsValid())
     {
         UE_LOG(LogTemp, Warning,
-               TEXT("[CurveScribeSequenceBuilder] AddPathTrack: 未在 Sequence 中找到 ACineCameraActor 或 ACurveScribeActor 的 Possessable"));
+               TEXT("[CurveScribeSequenceBuilder] AddPathTrack: 未在 Sequence 中找到 Camera Spawnable 或 CurveActor Possessable"));
         return false;
     }
 
@@ -240,7 +319,7 @@ bool UCurveScribeSequenceBuilder::AddPathTrackFromCurveActor(
     if (NewPathSection)
     {
         NewPathSection->SetRange(TRange<FFrameNumber>(StartFrame, EndFrame));
-        NewPathSection->bFollow         = true;   // 朝向沿曲线
+        NewPathSection->bFollow         = false;   // 朝向沿曲线
         NewPathSection->bReverse        = false;
         NewPathSection->bForceUpright   = false;
         NewPathSection->FrontAxisEnum   = MovieScene3DPathSection_Axis::NEG_X;
@@ -253,38 +332,7 @@ bool UCurveScribeSequenceBuilder::AddPathTrackFromCurveActor(
 
     Sequence->MarkPackageDirty();
     MovieScene->MarkPackageDirty();
-
-    // === 调试日志：用于排查"相机不沿对应路径移动"问题 ===
-    UE_LOG(LogTemp, Warning,
-           TEXT("[Debug AddPathTrack] Sequence=%s | SplineComponentName=%s | CameraGUID=%s | CurveActorGUID=%s | TotalSectionsOnTrack=%d | Range=[%d,%d]"),
-           *Sequence->GetName(),
-           *SplineComponentName.ToString(),
-           *CameraBindingGuid.ToString(),
-           *CurveActorBindingGuid.ToString(),
-           PathTrack->GetAllSections().Num(),
-           StartFrame.Value, EndFrame.Value);
-
-    if (NewPathSection)
-    {
-        UE_LOG(LogTemp, Warning,
-               TEXT("[Debug AddPathTrack]   NewSection: ConstraintBindingID.Guid=%s | Range=[%d,%d]"),
-               *NewPathSection->GetConstraintBindingID().GetGuid().ToString(),
-               NewPathSection->GetInclusiveStartFrame().Value,
-               NewPathSection->GetExclusiveEndFrame().Value);
-    }
-
-    // 同时打印 MovieScene 里所有 Possessable，确认相机/曲线是不是预期的那两个
-    const int32 PossessableCount2 = MovieScene->GetPossessableCount();
-    for (int32 i = 0; i < PossessableCount2; ++i)
-    {
-        const FMovieScenePossessable& P = MovieScene->GetPossessable(i);
-        const UClass* Cls = P.GetPossessedObjectClass();
-        UE_LOG(LogTemp, Warning,
-               TEXT("[Debug AddPathTrack]   Possessable[%d]: Name=%s | Class=%s | GUID=%s"),
-               i, *P.GetName(),
-               Cls ? *Cls->GetName() : TEXT("<null>"),
-               *P.GetGuid().ToString());
-    }
+    
 
     return true;
 }

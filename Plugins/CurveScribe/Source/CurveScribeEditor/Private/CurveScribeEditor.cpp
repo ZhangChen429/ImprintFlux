@@ -4,6 +4,7 @@
 #include "Editor/BezierCurveCommand.h"
 #include "Editor/BezierCurveVisualizer.h"
 #include "Editor/CurveScribeSceneCustomization.h"
+#include "Editor/CurveScribeDataAssetCustomization.h"
 #include "Style/BlenderPluginStyle.h"
 #include "PropertyEditorModule.h"
 #include "ToolMenus.h"
@@ -31,8 +32,8 @@
 #include "EditorViewportClient.h"
 
 
-DEFINE_LOG_CATEGORY(LogUEBlenderTool);
-#define LOCTEXT_NAMESPACE "FUEBlenderEditorModule"
+DEFINE_LOG_CATEGORY(LogCurveScribeTool);
+#define LOCTEXT_NAMESPACE "FCurveScribeEditorModule"
 
 const FName FCurveScribeEditorModule::BezierCurveTabName = FName(TEXT("BezierCurveWindow"));
 
@@ -59,6 +60,10 @@ void FCurveScribeEditorModule::StartupModule()
 			UCurveScribeScene::StaticClass()->GetFName(),
 			FOnGetDetailCustomizationInstance::CreateStatic(&FCurveScribeSceneCustomization::MakeInstance)
 		);
+		//PropertyModule.RegisterCustomClassLayout(
+		//	UCurveScribeDataAsset::StaticClass()->GetFName(),
+		//	FOnGetDetailCustomizationInstance::CreateStatic(&FCurveScribeDataAssetCustomization::MakeInstance)
+		//);
 	}
 
 	FCoreDelegates::OnPostEngineInit.AddLambda([this]()
@@ -70,7 +75,7 @@ void FCurveScribeEditorModule::StartupModule()
 				UCurveScribeScene::StaticClass()->GetFName(),
 				BezierCurveVisualizer
 			);
-			UE_LOG(LogUEBlenderTool, Log, TEXT("BezierCurve Visualizer registered for UCurveScribeScene"));
+			UE_LOG(LogCurveScribeTool, Log, TEXT("BezierCurve Visualizer registered for UCurveScribeScene"));
 		}
 	});
 }
@@ -93,6 +98,7 @@ void FCurveScribeEditorModule::ShutdownModule()
 	{
 		FPropertyEditorModule& PropertyModule = FModuleManager::LoadModuleChecked<FPropertyEditorModule>("PropertyEditor");
 		PropertyModule.UnregisterCustomClassLayout(UCurveScribeScene::StaticClass()->GetFName());
+		PropertyModule.UnregisterCustomClassLayout(UCurveScribeDataAsset::StaticClass()->GetFName());
 	}
 
 	// 注销命令
@@ -588,4 +594,4 @@ TSharedRef<SDockTab> FCurveScribeEditorModule::OnSpawnBezierCurveTab(const FSpaw
 
 #undef LOCTEXT_NAMESPACE
 
-IMPLEMENT_MODULE(FCurveScribeEditorModule, UEBlenderEditor)
+IMPLEMENT_MODULE(FCurveScribeEditorModule, CurveScribeEditor)
