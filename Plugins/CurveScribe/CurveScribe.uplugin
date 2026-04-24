@@ -22,7 +22,13 @@
 		{
 			"Name": "CurveScribeEditor",
 			"Type": "Editor",
-			"LoadingPhase": "Default"
+			"LoadingPhase": "PostEngineInit"
+		}
+		],
+	"Plugins" : [
+		{
+		"Name": "ProceduralMeshComponent",
+		"Enabled": true
 		}
 	]
 }

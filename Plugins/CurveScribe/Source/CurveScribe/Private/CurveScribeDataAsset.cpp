@@ -1,4 +1,4 @@
-﻿// Fill out your copyright notice in the Description page of Project Settings.
+// Fill out your copyright notice in the Description page of Project Settings.
 
 
 #include "CurveScribeDataAsset.h"
@@ -33,6 +33,7 @@ UCurveScribeDataAsset::UCurveScribeDataAsset()
 	}
 }
 
+#if WITH_EDITOR
 void UCurveScribeDataAsset::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
 {
 	Super::PostEditChangeProperty(PropertyChangedEvent);
@@ -56,17 +57,32 @@ void UCurveScribeDataAsset::PostEditChangeProperty(FPropertyChangedEvent& Proper
 		GET_MEMBER_NAME_CHECKED(UCurveScribeDataAsset, NoiseSeedB),
 		GET_MEMBER_NAME_CHECKED(UCurveScribeDataAsset, CorridorRadius),
 		GET_MEMBER_NAME_CHECKED(UCurveScribeDataAsset, RandomOffsetMinRadius),
-		GET_MEMBER_NAME_CHECKED(UCurveScribeDataAsset, ControlPoints)
+		GET_MEMBER_NAME_CHECKED(UCurveScribeDataAsset, ControlPoints),
+		GET_MEMBER_NAME_CHECKED(UCurveScribeDataAsset, CurveResolution),
+		GET_MEMBER_NAME_CHECKED(UCurveScribeDataAsset, SplinePointType),
+		GET_MEMBER_NAME_CHECKED(UCurveScribeDataAsset, TargetStepDistance),
 	};
 
 	// TubeScaleCurve 的曲线编辑器修改时 Property 为 null，通过 MemberProperty 判断
 	const FName MemberPropertyName = PropertyChangedEvent.MemberProperty ? PropertyChangedEvent.MemberProperty->GetFName() : NAME_None;
 
-	// 如果变更的属性在实时列表中，或者是曲线编辑器触发的修改，则广播更新
-	if (RealtimeProperties.Contains(PropertyName) ||
-	    RealtimeProperties.Contains(MemberPropertyName) ||
-	    PropertyName == NAME_None) // FRichCurve key 修改时 PropertyName 为 None
+	// 如果变更的属性不在实时列表中，跳过
+	if (!RealtimeProperties.Contains(PropertyName) &&
+	    !RealtimeProperties.Contains(MemberPropertyName) &&
+	    PropertyName != NAME_None)
 	{
-		OnDataChanged.Broadcast();
+		return;
 	}
+
+	// 特殊处理 ControlPoints 的交互式拖拽：只在释放后才广播，避免拖拽过程中卡顿
+	const bool bIsControlPointsProperty = (PropertyName == GET_MEMBER_NAME_CHECKED(UCurveScribeDataAsset, ControlPoints));
+	if (bIsControlPointsProperty && PropertyChangedEvent.ChangeType == EPropertyChangeType::Interactive)
+	{
+		// 拖拽过程中跳过广播，等用户释放鼠标（ValueSet）时再更新
+		return;
+	}
+
+	// 广播更新
+	OnDataChanged.Broadcast();
 }
+#endif

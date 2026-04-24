@@ -27,8 +27,6 @@ public class CurveScribe : ModuleRules
 				"DeveloperSettings",
 				"ProceduralMeshComponent",
 				"InteractiveToolsFramework",
-				"EditorInteractiveToolsFramework",
-				"InteractiveToolsFramework"
 			}
 			);
 

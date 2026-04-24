@@ -3,12 +3,14 @@
 
 ACurveScribeActor::ACurveScribeActor()
 {
-    bRunConstructionScriptOnDrag = true;
+   
     RootComponent = CreateDefaultSubobject<USceneComponent>(TEXT("SceneRoot"));
 
     // 一行完成 Scene + 全部子组件的创建与装配
+#if WITH_EDITOR
+    bRunConstructionScriptOnDrag = true;
     CurveTargetScene = UCurveScribeScene::CreateAndAttach(this, RootComponent);
-
+#endif
     // 填充参数初始值
 }
 

@@ -1,11 +1,11 @@
 #include "CurveScribeScene.h"
-#include "CurveScribeActor.h"
 #include "CurveScribeDataAsset.h"
 #include "Curves/CurveFloat.h"
 #include "GameFramework/Actor.h"
 #include "Components/SplineComponent.h"
 #include "Components/BillboardComponent.h"
 
+#if WITH_EDITOR
 UCurveScribeScene* UCurveScribeScene::CreateAndAttach(
     AActor* Owner,
     USceneComponent* AttachTo,
@@ -26,7 +26,7 @@ UCurveScribeScene* UCurveScribeScene::CreateAndAttach(
         Scene->SetupAttachment(AttachTo);
     }
 
-    // 注意：子组件的 Outer 必须是 Owner（Actor），而非 Scene；否则注册阶段不进入 Actor 组件表，transform 不传播
+    // 注意：子组件�?Outer 必须�?Owner（Actor），而非 Scene；否则注册阶段不进入 Actor 组件表，transform 不传�?   
     auto MakeBillboard = [Owner, Scene](FName InName) -> UBillboardComponent*
     {
         UBillboardComponent* B = Owner->CreateDefaultSubobject<UBillboardComponent>(InName);
@@ -40,15 +40,17 @@ UCurveScribeScene* UCurveScribeScene::CreateAndAttach(
         if (S)
         {
             S->SetupAttachment(Scene);
+#if WITH_EDITOR
             S->EditorUnselectedSplineSegmentColor = Color;
             S->EditorSelectedSplineSegmentColor   = Color;
+#endif
         }
         return S;
     };
 
-    const FLinearColor WallColor  = FLinearColor(1.0f, 0.85f, 0.0f); // 黄 - 走廊左右
-    const FLinearColor RandAColor = FLinearColor(1.0f, 0.2f,  0.2f); // 红 - 随机 A
-    const FLinearColor RandBColor = FLinearColor(0.2f, 0.5f,  1.0f); // 蓝 - 随机 B
+    const FLinearColor WallColor  = FLinearColor(1.0f, 0.85f, 0.0f); // �?- 走廊左右
+    const FLinearColor RandAColor = FLinearColor(1.0f, 0.2f,  0.2f); // �?- 随机 A
+    const FLinearColor RandBColor = FLinearColor(0.2f, 0.5f,  1.0f); // �?- 随机 B
 
     Scene->BillboardComponentBegin = MakeBillboard(Names.BillboardBegin);
     Scene->BillboardComponentEnd   = MakeBillboard(Names.BillboardEnd);
@@ -66,18 +68,19 @@ UCurveScribeScene* UCurveScribeScene::CreateAndAttach(
 
     return Scene;
 }
+#endif
 
 UCurveScribeScene::UCurveScribeScene()
 {
-    // 关键：允许组件 Tick
+    // 关键：允许组�?Tick
     PrimaryComponentTick.bCanEverTick = true;
     PrimaryComponentTick.bStartWithTickEnabled = true;
     FillSegmentCount = 4;
-    // 控制点初始数据
-    ControlPoints.Add(FVector(0.0f, 0.0f, 0.0f));
+    // 控制点初始数�?    ControlPoints.Add(FVector(0.0f, 0.0f, 0.0f));
     ControlPoints.Add(FVector(100.0f, 200.0f, 0.0f));
     ControlPoints.Add(FVector(200.0f, -100.0f, 0.0f));
     ControlPoints.Add(FVector(300.0f, 0.0f, 0.0f));
+    ControlPoints.Add(FVector(400.0f, 100.0f, 0.0f));
     if (BillboardComponentEnd)
     {
         BillboardComponentEnd->SetRelativeLocation(
@@ -85,6 +88,22 @@ UCurveScribeScene::UCurveScribeScene()
     }
 #if WITH_EDITOR
     bTickInEditor = true;
+#endif
+}
+
+void UCurveScribeScene::PostInitProperties()
+{
+    Super::PostInitProperties();
+#if WITH_EDITOR
+    BindToDataAsset();
+#endif
+}
+
+void UCurveScribeScene::PostLoad()
+{
+    Super::PostLoad();
+#if WITH_EDITOR
+    BindToDataAsset();
 #endif
 }
 
@@ -130,7 +149,7 @@ void UCurveScribeScene::TickComponent(float DeltaTime, ELevelTick TickType,
         }
     }
 
-    // ── 控制点切向 Debug 圆环 ──
+    // ── 控制点切�?Debug 圆环 ──
     if (bShowControlPointCircles && ControlPoints.Num() > 0 )
     {
         const int32 Last = ControlPoints.Num() - 1;
@@ -138,7 +157,7 @@ void UCurveScribeScene::TickComponent(float DeltaTime, ELevelTick TickType,
         {
             const FVector CenterW = SceneXform.TransformPosition(ControlPoints[i]);
 
-            // 切向：朝向下一个控制点；末点沿前一段方向
+            // 切向：朝向下一个控制点；末点沿前一段方�?          
             FVector TangentLocal;
             if (i < Last)
             {
@@ -159,7 +178,7 @@ void UCurveScribeScene::TickComponent(float DeltaTime, ELevelTick TickType,
                 Tangent = FVector::ForwardVector;
             }
 
-            // 圆环所在法平面的两个基向量（与 Tangent 正交）
+            // 圆环所在法平面的两个基向量（与 Tangent 正交�?            
             FVector YAxis = FVector::CrossProduct(Tangent, FVector::UpVector).GetSafeNormal();
             if (YAxis.IsNearlyZero())
             {
@@ -261,10 +280,14 @@ void UCurveScribeScene::PostEditChangeProperty(FPropertyChangedEvent& PropertyCh
         RebuildCurve();
     }
 
+    if (PropertyName == GET_MEMBER_NAME_CHECKED(UCurveScribeScene, CorridorRadius))
+    {
+        RebuildCurve();
+    }
+    
     if (PropertyName == GET_MEMBER_NAME_CHECKED(UCurveScribeScene, CurveData))
     {
-        // CurveData 变更时重新绑定委托
-        BindToDataAsset();
+        // CurveData 变更时重新绑定委�?        BindToDataAsset();
         RebuildCurve();
     }
 
@@ -287,8 +310,7 @@ void UCurveScribeScene::PostEditUndo()
 
 void UCurveScribeScene::BindToOwner()
 {
-    // Scene 现在是数据权威源，无需再绑定到 Actor 的委托
-    // 只做初始曲线重建
+    // Scene 现在是数据权威源，无需再绑定到 Actor 的委�?    // 只做初始曲线重建
     RebuildCurve();
 
     // 绑定 CurveData 变更委托
@@ -297,12 +319,13 @@ void UCurveScribeScene::BindToOwner()
 
 void UCurveScribeScene::BindToDataAsset()
 {
+#if WITH_EDITOR
     if (CurveData)
     {
-#if WITH_EDITOR
+        // 先解绑避免重复绑定，再重新绑�?        CurveData->OnDataChanged.RemoveAll(this);
         CurveData->OnDataChanged.AddUObject(this, &UCurveScribeScene::OnDataAssetChanged);
-#endif
     }
+#endif
 }
 
 void UCurveScribeScene::OnDataAssetChanged()
@@ -318,7 +341,7 @@ void UCurveScribeScene::RebuildCurve()
         return;
     }
 
-    // 控制点视为 Scene 本地空间；所有 spline 点写 Local，整体跟随 Scene 的 ComponentTransform
+    // 控制点视�?Scene 本地空间；所�?spline 点写 Local，整体跟�?Scene �?ComponentTransform
     TArray<FVector> CurvePoints;
     CurvePoints.Reserve(CurveResolution + 1);
     for (int32 i = 0; i <= CurveResolution; ++i)
@@ -354,14 +377,14 @@ void UCurveScribeScene::RebuildCorridor(const TArray<FVector>& InCurvePoints)
     const int32 Last = InCurvePoints.Num() - 1;
     for (int32 i = 0; i <= Last; ++i)
     {
-        // 中心差分求切向，端点退化为前向/后向差分（Scene 本地空间）
+        // 中心差分求切向，端点退化为前向/后向差分（Scene 本地空间�?        
         FVector Tangent;
         if (i == 0)           { Tangent = InCurvePoints[1] - InCurvePoints[0]; }
         else if (i == Last)   { Tangent = InCurvePoints[Last] - InCurvePoints[Last - 1]; }
         else                  { Tangent = InCurvePoints[i + 1] - InCurvePoints[i - 1]; }
         Tangent = Tangent.GetSafeNormal();
 
-        // 以本地 Z 为参考 Up，Right = T × Z；若切向接近竖直则退化用本地 X
+        // 以本�?Z 为参�?Up，Right = T × Z；若切向接近竖直则退化用本地 X
         FVector RightDir = FVector::CrossProduct(Tangent, FVector::UpVector).GetSafeNormal();
         if (RightDir.IsNearlyZero())
         {
@@ -388,7 +411,7 @@ void UCurveScribeScene::RebuildCorridor(const TArray<FVector>& InCurvePoints)
 
 void UCurveScribeScene::RebuildRandomInCorridor(const TArray<FVector>& InControlPoints)
 {
-    // 从 DataAsset 读 noise 参数；没配 DataAsset 就回退到纯随机（保留原行为）
+    // �?DataAsset �?noise 参数；没�?DataAsset 就回退到纯随机（保留原行为�?    
     const bool  bUseNoise  = CurveData ? CurveData->bUseNoiseOffset : true;
     const float NoiseFreq  = CurveData ? CurveData->NoiseFrequency  : 3.0f;
     const float SeedA      = CurveData ? CurveData->NoiseSeedA      : 0.f;
@@ -426,7 +449,7 @@ void UCurveScribeScene::RebuildRandomInCorridor(const TArray<FVector>& InControl
                 RightDir = FVector::CrossProduct(Tangent, FVector::ForwardVector).GetSafeNormal();
                 if (RightDir.IsNearlyZero()) { RightDir = FVector::RightVector; }
             }
-            // 法平面的第二个基向量（与 Tangent、Right 正交）
+            // 法平面的第二个基向量（与 Tangent、Right 正交�?            
             const FVector NormalUp = FVector::CrossProduct(RightDir, Tangent).GetSafeNormal();
 
             const float T = (Last > 0) ? static_cast<float>(i) / static_cast<float>(Last) : 0.f;
@@ -437,7 +460,7 @@ void UCurveScribeScene::RebuildRandomInCorridor(const TArray<FVector>& InControl
             float RandMag;
             if (bUseNoise)
             {
-                // Perlin 1D 返回 [-1, 1]，沿 T 连续 → 相邻控制点偏移相近
+                // Perlin 1D 返回 [-1, 1]，沿 T 连续 �?相邻控制点偏移相�        
                 const float Phase   = T * NoiseFreq + SeedOffset;
                 const float AngleN  = FMath::PerlinNoise1D(Phase);
                 const float RadiusN = FMath::PerlinNoise1D(Phase + 50.f); // 错开频道
@@ -454,7 +477,7 @@ void UCurveScribeScene::RebuildRandomInCorridor(const TArray<FVector>& InControl
             OffsetCPs.Add(InControlPoints[i] + OffsetDir * RandMag);
         }
 
-        // 用偏移后的控制点做贝塞尔采样，写入 Scene 本地空间
+        // 用偏移后的控制点做贝塞尔采样，写�?Scene 本地空间
         for (int32 i = 0; i <= CurveResolution; ++i)
         {
             const float T = static_cast<float>(i) / static_cast<float>(CurveResolution);
@@ -473,13 +496,13 @@ float UCurveScribeScene::GetTubeScaleAt(float T) const
 {
     const float ClampedT = FMath::Clamp(T, 0.f, 1.f);
 
-    // 优先使用 DataAsset 内置的 TubeScaleCurve（inline FRichCurve）
+    // 优先使用 DataAsset 内置�?TubeScaleCurve（inline FRichCurve�?  
+    // 
     if (CurveData && CurveData->TubeScaleCurve.GetNumKeys() > 0)
     {
         return CurveData->TubeScaleCurve.Eval(ClampedT, 1.f);
     }
-
-    // 回退到外部 UCurveFloat 引用（保留，用于旧资产/无 DataAsset 场景）
+    
     if (CircularTubeData)
     {
         return CircularTubeData->GetFloatValue(ClampedT);
@@ -596,14 +619,14 @@ void UCurveScribeScene::RandomOffsetControlPoints()
     // 首末端保持不动，保证起止位置不变
     for (int32 i = 1; i < Last; ++i)
     {
-        // 切向：中心差分
+        // 切向：中心差    
         FVector Tangent = (ControlPoints[i + 1] - ControlPoints[i - 1]).GetSafeNormal();
         if (Tangent.IsNearlyZero())
         {
             Tangent = FVector::ForwardVector;
         }
 
-        // 法平面基向量（与 Tangent 正交）
+        // 法平面基向量（与 Tangent 正交�?        
         FVector RightDir = FVector::CrossProduct(Tangent, FVector::UpVector).GetSafeNormal();
         if (RightDir.IsNearlyZero())
         {
@@ -615,7 +638,7 @@ void UCurveScribeScene::RandomOffsetControlPoints()
         }
         const FVector NormalUp = FVector::CrossProduct(RightDir, Tangent).GetSafeNormal();
 
-        // 法平面极坐标：角度 [0, 2π)、半径 [Min, Max]
+        // 法平面极坐标：角�?[0, 2π)、半�?[Min, Max]
         const float Angle = FMath::FRandRange(0.f, 2.f * PI);
         const float Mag = FMath::FRandRange(MinR, ControlPointRandomOffsetMax);
         const FVector OffsetDir = FMath::Cos(Angle) * RightDir + FMath::Sin(Angle) * NormalUp;
@@ -666,8 +689,9 @@ void UCurveScribeScene::SaveToDataAsset()
     CurveData->SplinePointType = SplinePointType;
     CurveData->CorridorRadius = CorridorRadius;
     CurveData->RandomOffsetMinRadius = RandomOffsetMinRadius;
-
+#if WITH_EDITOR
     CurveData->MarkPackageDirty();
+#endif   
 }
 
 void UCurveScribeScene::BakeTransformIntoControlPoints()
@@ -680,7 +704,7 @@ void UCurveScribeScene::BakeTransformIntoControlPoints()
 
     Modify();
 
-    // 控制点：把 Scene 的相对变换吸收进本地坐标
+    // 控制点：�?Scene 的相对变换吸收进本地坐标
     for (FVector& P : ControlPoints)
     {
         P = SceneRel.TransformPosition(P);
@@ -704,3 +728,4 @@ void UCurveScribeScene::BakeTransformIntoControlPoints()
     RebuildCurve();
     NotifyControlPointsChanged();
 }
+

@@ -66,9 +66,10 @@ void FCurveScribeEditorModule::StartupModule()
 		//);
 	}
 
-	FCoreDelegates::OnPostEngineInit.AddLambda([this]()
+	// 注册 Component Visualizer（立即尝试 + PostEngineInit 后备）
+	auto RegisterVisualizer = [this]()
 	{
-		if (GUnrealEd)
+		if (GUnrealEd && !BezierCurveVisualizer.IsValid())
 		{
 			BezierCurveVisualizer = MakeShared<FBezierCurveVisualizer>();
 			GUnrealEd->RegisterComponentVisualizer(
@@ -77,7 +78,17 @@ void FCurveScribeEditorModule::StartupModule()
 			);
 			UE_LOG(LogCurveScribeTool, Log, TEXT("BezierCurve Visualizer registered for UCurveScribeScene"));
 		}
-	});
+	};
+
+	// 如果引擎已初始化，立即注册；否则等委托
+	if (GEngine && GUnrealEd)
+	{
+		RegisterVisualizer();
+	}
+	else
+	{
+		FCoreDelegates::OnPostEngineInit.AddLambda(RegisterVisualizer);
+	}
 }
 
 void FCurveScribeEditorModule::ShutdownModule()

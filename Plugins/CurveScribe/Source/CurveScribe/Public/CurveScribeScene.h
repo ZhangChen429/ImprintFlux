@@ -2,6 +2,7 @@
 
 #include "CoreMinimal.h"
 #include "Components/SceneComponent.h"
+#include "DrawDebugHelpers.h"
 #include "Components/SplineComponent.h"
 #include "CurveScribeScene.generated.h"
 
@@ -66,10 +67,6 @@ public:
      * @param AttachTo  Scene 要附加到的父级（通常是 Owner->RootComponent）
      */
 
-    static UCurveScribeScene* CreateAndAttach(
-        AActor* Owner,
-        USceneComponent* AttachTo,
-        const FCurveScribeSubcomponentNames& Names = FCurveScribeSubcomponentNames());
 
     virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
     
@@ -190,9 +187,17 @@ public:
 
     // CurveData 变更回调
     void OnDataAssetChanged();
+#if WITH_EDITOR
+    static UCurveScribeScene* CreateAndAttach(
+    AActor* Owner,
+    USceneComponent* AttachTo,
+    const FCurveScribeSubcomponentNames& Names = FCurveScribeSubcomponentNames());
+#endif
 
 protected:
     virtual void OnRegister() override;
+    virtual void PostInitProperties() override;
+    virtual void PostLoad() override;
 
 #if WITH_EDITOR
     virtual void PreEditChange(FProperty* PropertyAboutToChange) override;

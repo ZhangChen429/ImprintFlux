@@ -2,6 +2,7 @@
 
 #include "CoreMinimal.h"
 #include "UObject/Object.h"
+#include "Engine/DataAsset.h"
 #include "Components/SplineComponent.h"
 #include "Curves/RichCurve.h"
 #include "CurveScribeDataAsset.generated.h"
