@@ -4,7 +4,6 @@
 #include "MovieScene.h"
 #include "MovieSceneObjectBindingID.h"
 #include "CineCameraActor.h"
-#include "CurveScribeActor.h"
 
 #include "Tracks/MovieScene3DPathTrack.h"
 #include "Sections/MovieScene3DPathSection.h"
@@ -21,16 +20,67 @@
 #include "Tracks/MovieSceneSpawnTrack.h"
 #include "Sections/MovieSceneSpawnSection.h"
 #include "Components/SplineComponent.h"
-#include "CurveScribeScene.h"
+
+// 通过反射从 CurveActor 获取 SplineComponent
+static USplineComponent* GetSplineComponentFromCurveActor(AActor* CurveActor)
+{
+    if (!CurveActor)
+    {
+        return nullptr;
+    }
+
+    // 尝试获取 CurveTargetScene 属性（UCurveScribeScene* 类型）
+    UClass* ActorClass = CurveActor->GetClass();
+    FProperty* CurveSceneProperty = ActorClass->FindPropertyByName(TEXT("CurveTargetScene"));
+    if (!CurveSceneProperty)
+    {
+        UE_LOG(LogTemp, Warning, TEXT("[CurveScribeSequenceBuilder] CurveActor has no 'CurveTargetScene' property"));
+        return nullptr;
+    }
+
+    // 获取属性值（UObject*）
+    UObject* CurveSceneObject = nullptr;
+    FObjectPropertyBase* ObjectProperty = CastField<FObjectPropertyBase>(CurveSceneProperty);
+    if (ObjectProperty)
+    {
+        CurveSceneObject = ObjectProperty->GetObjectPropertyValue_InContainer(CurveActor);
+    }
+
+    if (!CurveSceneObject)
+    {
+        UE_LOG(LogTemp, Warning, TEXT("[CurveScribeSequenceBuilder] CurveTargetScene is null"));
+        return nullptr;
+    }
+
+    // 从 CurveScene 获取 SplineComponent 属性
+    UClass* SceneClass = CurveSceneObject->GetClass();
+    FProperty* SplineProperty = SceneClass->FindPropertyByName(TEXT("SplineComponent"));
+    if (!SplineProperty)
+    {
+        UE_LOG(LogTemp, Warning, TEXT("[CurveScribeSequenceBuilder] CurveScene has no 'SplineComponent' property"));
+        return nullptr;
+    }
+
+    // 获取 SplineComponent
+    USplineComponent* SplineComponent = nullptr;
+    FObjectPropertyBase* SplineObjectProperty = CastField<FObjectPropertyBase>(SplineProperty);
+    if (SplineObjectProperty)
+    {
+        SplineComponent = Cast<USplineComponent>(SplineObjectProperty->GetObjectPropertyValue_InContainer(CurveSceneObject));
+    }
+
+    return SplineComponent;
+}
 
 bool UCurveScribeSequenceBuilder::CreateSequenceWithCameraAndCurveActor(
-    ACurveScribeActor* CurveActor,
+    AActor* CurveActor,
     const FString& SequencePackagePath,
     const FString& SequenceAssetBaseName,
     const TArray<FName>& SplineComponentNames,
     float DurationSeconds,
     TArray<ULevelSequence*>& OutSequences,
-    TArray<ACineCameraActor*>& OutSpawnedCameras)
+    TArray<ACineCameraActor*>& OutSpawnedCameras,
+    bool bFollowPath)
 {
     OutSequences.Reset();
     OutSpawnedCameras.Reset();
@@ -67,6 +117,9 @@ bool UCurveScribeSequenceBuilder::CreateSequenceWithCameraAndCurveActor(
         UE_LOG(LogTemp, Warning, TEXT("[CurveScribeSequenceBuilder] No editor world available"));
         return false;
     }
+
+    // 通过反射获取 SplineComponent 用于初始位置和朝向
+    USplineComponent* SplineComponent = GetSplineComponentFromCurveActor(CurveActor);
 
     IAssetTools& AssetTools = FModuleManager::LoadModuleChecked<FAssetToolsModule>("AssetTools").Get();
 
@@ -125,15 +178,12 @@ bool UCurveScribeSequenceBuilder::CreateSequenceWithCameraAndCurveActor(
         // 获取主 SplineComponent 起始点的切线方向，用于设置相机初始朝向
         FVector TangentDirection = FVector::XAxisVector;
         FVector InitialLocation = CurveActor->GetActorLocation();
-        if (UCurveScribeScene* CurveScene = CurveActor->CurveTargetScene)
+        if (SplineComponent)
         {
-            if (USplineComponent* Spline = CurveScene->SplineComponent)
+            if (SplineComponent->GetNumberOfSplinePoints() >= 2)
             {
-                if (Spline->GetNumberOfSplinePoints() >= 2)
-                {
-                    TangentDirection = Spline->GetTangentAtSplinePoint(0, ESplineCoordinateSpace::World).GetSafeNormal();
-                    InitialLocation = Spline->GetLocationAtSplinePoint(0, ESplineCoordinateSpace::World);
-                }
+                TangentDirection = SplineComponent->GetTangentAtSplinePoint(0, ESplineCoordinateSpace::World).GetSafeNormal();
+                InitialLocation = SplineComponent->GetLocationAtSplinePoint(0, ESplineCoordinateSpace::World);
             }
         }
 
@@ -154,7 +204,7 @@ bool UCurveScribeSequenceBuilder::CreateSequenceWithCameraAndCurveActor(
                     FMovieSceneBoolChannel* SpawnChannel = BoolChannels[0];
                     FFrameNumber StartTime = MovieScene->GetPlaybackRange().GetLowerBoundValue();
                     FFrameNumber EndTime = MovieScene->GetPlaybackRange().GetUpperBoundValue();
-                  
+
                 }
                 SpawnTrack->AddSection(*SpawnSection);
             }
@@ -195,7 +245,7 @@ bool UCurveScribeSequenceBuilder::CreateSequenceWithCameraAndCurveActor(
                 CameraCutTrack->AddSection(*CameraCutSection);
             }
         }
-        
+
         const FGuid CurveGuid = MovieScene->AddPossessable(CurveActor->GetActorLabel(), CurveActor->GetClass());
         Sequence->BindPossessableObject(CurveGuid, *CurveActor, World);
 
@@ -203,7 +253,7 @@ bool UCurveScribeSequenceBuilder::CreateSequenceWithCameraAndCurveActor(
         MovieScene->MarkPackageDirty();
 
         // 5. 直接添加对应 spline 的 PathTrack
-        if (!AddPathTrackFromCurveActor(Sequence, SplineName))
+        if (!AddPathTrackFromCurveActor(Sequence, SplineName,bFollowPath))
         {
             UE_LOG(LogTemp, Warning, TEXT("[CurveScribeSequenceBuilder] AddPathTrack 失败: %s / %s"),
                    *AssetName, *SplineName.ToString());
@@ -223,7 +273,7 @@ bool UCurveScribeSequenceBuilder::CreateSequenceWithCameraAndCurveActor(
 
 bool UCurveScribeSequenceBuilder::AddPathTrackFromCurveActor(
     ULevelSequence* Sequence,
-    FName SplineComponentName)
+    FName SplineComponentName,bool const bFollowPath)
 {
     if (!Sequence)
     {
@@ -254,16 +304,21 @@ bool UCurveScribeSequenceBuilder::AddPathTrackFromCurveActor(
         }
     }
 
-    // 查找 CurveActor Possessable
+    // 查找 CurveActor Possessable - 通过反射检查类名或属性
     const int32 PossessableCount = MovieScene->GetPossessableCount();
     for (int32 i = 0; i < PossessableCount; ++i)
     {
         const FMovieScenePossessable& Possessable = MovieScene->GetPossessable(i);
         const UClass* PossessedClass = Possessable.GetPossessedObjectClass();
-        if (PossessedClass && PossessedClass->IsChildOf(ACurveScribeActor::StaticClass()))
+        if (PossessedClass)
         {
-            CurveActorBindingGuid = Possessable.GetGuid();
-            break;
+            // 检查类名是否包含 "CurveScribeActor" 或检查是否有 CurveTargetScene 属性
+            if (PossessedClass->GetName().Contains(TEXT("CurveScribeActor")) ||
+                PossessedClass->FindPropertyByName(TEXT("CurveTargetScene")) != nullptr)
+            {
+                CurveActorBindingGuid = Possessable.GetGuid();
+                break;
+            }
         }
     }
 
@@ -305,7 +360,7 @@ bool UCurveScribeSequenceBuilder::AddPathTrackFromCurveActor(
 
     const FMovieSceneObjectBindingID ConstraintBindingID{
         UE::MovieScene::FRelativeObjectBindingID(CurveActorBindingGuid)};
-    
+
     const int32 SectionCountBefore = PathTrack->GetAllSections().Num();
     PathTrack->AddConstraint(StartFrame, DurationTicks, NAME_None /*SocketName*/, SplineComponentName, ConstraintBindingID);
 
@@ -319,8 +374,7 @@ bool UCurveScribeSequenceBuilder::AddPathTrackFromCurveActor(
     if (NewPathSection)
     {
         NewPathSection->SetRange(TRange<FFrameNumber>(StartFrame, EndFrame));
-        NewPathSection->bFollow         = false;   // 朝向沿曲线
-        NewPathSection->bReverse        = false;
+        NewPathSection->bFollow         = bFollowPath;   // 朝向沿曲线
         NewPathSection->bForceUpright   = false;
         NewPathSection->FrontAxisEnum   = MovieScene3DPathSection_Axis::NEG_X;
         NewPathSection->UpAxisEnum      = MovieScene3DPathSection_Axis::Z;
@@ -332,8 +386,7 @@ bool UCurveScribeSequenceBuilder::AddPathTrackFromCurveActor(
 
     Sequence->MarkPackageDirty();
     MovieScene->MarkPackageDirty();
-    
+
 
     return true;
 }
-

@@ -26,7 +26,6 @@ public class CameraTrackToolEditor : ModuleRules
                 "MovieScene",
                 "MovieSceneTracks",
                 "CinematicCamera",
-                "CurveScribe",
                 "Json"
             }
         );

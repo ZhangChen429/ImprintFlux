@@ -5,7 +5,6 @@
 #include "CurveScribeSequenceBuilder.generated.h"
 
 class ULevelSequence;
-class ACurveScribeActor;
 class ACineCameraActor;
 
 /**
@@ -31,36 +30,26 @@ public:
      * @param DurationSeconds         Sequence 时长（秒，>0），用于设置 PlaybackRange
      * @param OutSequences            返回每个 spline 对应的 LevelSequence 资产
      * @param OutSpawnedCameras       返回每个 Sequence 对应的相机 actor
+     * @param bFollowPath             是否开启相机跟随
      * @return 全部成功返回 true；任何一个失败返回 false（成功创建的部分仍会写入 Out 数组）
      */
     UFUNCTION(BlueprintCallable, Category = "CurveScribe|Sequence",
               meta = (DisplayName = "创建 Sequence (按 Spline 列表批量)"))
     static bool CreateSequenceWithCameraAndCurveActor(
-        ACurveScribeActor* CurveActor,
+        AActor* CurveActor,
         const FString& SequencePackagePath,
         const FString& SequenceAssetBaseName,
         const TArray<FName>& SplineComponentNames,
         float DurationSeconds,
         TArray<ULevelSequence*>& OutSequences,
-        TArray<ACineCameraActor*>& OutSpawnedCameras);
+        TArray<ACineCameraActor*>& OutSpawnedCameras,bool bFollowPath);
 
     /**
      * 步骤 2：在相机 binding 上添加 3D Path Track，约束对象为 Sequence 中的 CurveActor binding。
      * 引擎原生路径约束：相机沿 CurveActor 的 SplineComponent 移动，由 Sequencer 运行时求值，
-     * 后续 CurveActor 的 spline 改动相机自动跟随，无需重新烘焙。
-     *
-     * 相机和 CurveActor 的 binding 自动从 Sequence 的 Possessable 中按类查找：
-     * 取第一个 ACineCameraActor 和第一个 ACurveScribeActor。Sequence 中需各只有一个；
-     * 如有多个，结果是 Possessable 数组的首个匹配，可能不是你想要的。
-     *
-     * Path Section 长度 = Sequence 当前的 PlaybackRange，相机始终沿曲线走完整个 sequence。
-     *
-     * @param Sequence              目标 LevelSequence（PlaybackRange 必须已设置）
-     * @param SplineComponentName   要使用的 spline 组件名（默认 "SplineComponent"，对应主曲线）
-     * @return 是否成功
      */
     UFUNCTION(BlueprintCallable, Category = "CurveScribe|Sequence")
     static bool AddPathTrackFromCurveActor(
         ULevelSequence* Sequence,
-        FName SplineComponentName = TEXT("SplineComponent"));
+        FName SplineComponentName = TEXT("SplineComponent"),bool const bFollowPath = false);
 };
