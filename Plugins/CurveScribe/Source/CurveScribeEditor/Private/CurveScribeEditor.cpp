@@ -5,7 +5,6 @@
 #include "Editor/BezierCurveVisualizer.h"
 #include "Editor/CurveScribeSceneCustomization.h"
 #include "Editor/CurveScribeDataAssetCustomization.h"
-#include "Style/BlenderPluginStyle.h"
 #include "PropertyEditorModule.h"
 #include "ToolMenus.h"
 #include "WorkspaceMenuStructure.h"
@@ -120,7 +119,6 @@ void FCurveScribeEditorModule::ShutdownModule()
 	}
 
 	// 清理样式
-	FBlenderPluginStyle::Shutdown();
 
 	// 注销贝塞尔曲线可视化工具
 	if (GUnrealEd && BezierCurveVisualizer.IsValid())
@@ -137,7 +135,6 @@ void FCurveScribeEditorModule::RegisterBezierCurveTab()
 		FOnSpawnTab::CreateRaw(this, &FCurveScribeEditorModule::OnSpawnBezierCurveTab))
 		.SetDisplayName(LOCTEXT("BezierCurveTabTitle", "Bezier Curve"))
 		.SetTooltipText(LOCTEXT("BezierCurveTabTooltip", "Open the Bezier Curve Generator"))
-		.SetIcon(FSlateIcon(FBlenderPluginStyle::GetStyleSetName(), "BlenderPlugin.OpenBezierCurveWindow"))
 		.SetGroup(WorkspaceMenu::GetMenuStructure().GetToolsCategory());
 }
 

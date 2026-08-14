@@ -6,7 +6,7 @@
 #include "CurveScribeSequenceBlueprintLibrary.generated.h"
 
 /**
- * UEBlender 蓝图函数库
+ * CurveScribe 蓝图函数库
  */
 UCLASS()
 class CURVESCRIBE_API UCurveScribeSequenceBlueprintLibrary : public UBlueprintFunctionLibrary
@@ -22,7 +22,7 @@ public:
      * @param SplineType 样条线类型
      * @return 创建的样条线组件
      */
-    UFUNCTION(BlueprintCallable, Category = "UEBlender|Spline", meta = (WorldContext = "WorldContext", DeterminesOutputType = "SplineClass"))
+    UFUNCTION(BlueprintCallable, Category = "CurveScribe|Spline", meta = (WorldContext = "WorldContext", DeterminesOutputType = "SplineClass"))
     static USplineComponent* CreateSplineFromTransforms(
         UObject* WorldContext,
         const TArray<FTransform>& Transforms,
@@ -36,7 +36,7 @@ public:
      * @param Transforms Transform 数组
      * @param bClosedLoop 是否闭合样条线
      */
-    UFUNCTION(BlueprintCallable, Category = "UEBlender|Spline")
+    UFUNCTION(BlueprintCallable, Category = "CurveScribe|Spline")
     static void UpdateSplineFromTransforms(
         USplineComponent* SplineComponent,
         const TArray<FTransform>& Transforms,
@@ -50,7 +50,7 @@ public:
      * @param bClosedLoop 是否闭合样条线
      * @return 创建的 Actor
      */
-    UFUNCTION(BlueprintCallable, Category = "UEBlender|Spline", meta = (WorldContext = "WorldContext"))
+    UFUNCTION(BlueprintCallable, Category = "CurveScribe|Spline", meta = (WorldContext = "WorldContext"))
     static AActor* CreateSplineActorFromTransforms(
         UObject* WorldContext,
         const TArray<FTransform>& Transforms,
@@ -64,7 +64,7 @@ public:
      * @param CoordinateSpace 坐标空间
      * @return 该位置的 Transform
      */
-    UFUNCTION(BlueprintPure, Category = "UEBlender|Spline")
+    UFUNCTION(BlueprintPure, Category = "CurveScribe|Spline")
     static FTransform GetSplineTransformAtDistance(
         USplineComponent* SplineComponent,
         float Distance,
@@ -76,6 +76,6 @@ public:
      * @param Actors Actor 数组
      * @return Transform 数组
      */
-    UFUNCTION(BlueprintPure, Category = "UEBlender|Spline")
+    UFUNCTION(BlueprintPure, Category = "CurveScribe|Spline")
     static TArray<FTransform> ActorsToTransforms(const TArray<AActor*>& Actors);
 };

@@ -2,7 +2,7 @@
 
 #include "CoreMinimal.h"
 #include "Framework/Commands/Commands.h"
-#include "Style/BlenderPluginStyle.h"
+#include "Styling/AppStyle.h"
 
 /**
  * 贝塞尔曲线编辑器命令
@@ -12,10 +12,10 @@ class FBezierCurveCommand : public TCommands<FBezierCurveCommand>
 public:
 	FBezierCurveCommand()
 		: TCommands<FBezierCurveCommand>(
-			FBlenderPluginStyle::GetStyleSetName(),
+			TEXT("CurveScribeBezierCurve"),
 			NSLOCTEXT("BezierCurve", "BezierCurve", "Bezier Curve Commands"),
 			NAME_None,
-			FBlenderPluginStyle::GetStyleSetName()
+			FAppStyle::GetAppStyleSetName()
 		)
 	{
 	}

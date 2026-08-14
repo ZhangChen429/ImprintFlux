@@ -1,10 +1,8 @@
-﻿// Copyright Epic Games, Inc. All Rights Reserved.
-
 using UnrealBuildTool;
 
-public class CurveScribe : ModuleRules
+public class FormScribeEditor : ModuleRules
 {
-	public CurveScribe(ReadOnlyTargetRules Target) : base(Target)
+	public FormScribeEditor(ReadOnlyTargetRules Target) : base(Target)
 	{
 		PCHUsage = ModuleRules.PCHUsageMode.UseExplicitOrSharedPCHs;
 
@@ -13,15 +11,17 @@ public class CurveScribe : ModuleRules
 			{
 				"Core",
 				"CoreUObject",
+				"FormScribe",
 			}
-			);
+		);
 
 		PrivateDependencyModuleNames.AddRange(
 			new string[]
 			{
 				"Engine",
+				"UnrealEd",
+				"AssetDefinition",
 			}
-			);
-
+		);
 	}
 }

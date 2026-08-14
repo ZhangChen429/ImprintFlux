@@ -3,9 +3,6 @@
 #include "CoreMinimal.h"
 #include "Modules/ModuleManager.h"
 
-class FBlenderLiveLink;
-class FMonitoredProcess;
-class FAlterMeshBridge;
 class FBezierCurveVisualizer;
 DECLARE_LOG_CATEGORY_EXTERN(LogCurveScribeTool, Log, All);
 

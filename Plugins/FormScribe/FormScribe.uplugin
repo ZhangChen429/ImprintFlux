@@ -1,28 +1,29 @@
-﻿{
+{
 	"FileVersion": 3,
 	"Version": 1,
 	"VersionName": "1.0",
-	"FriendlyName": "CurveScribe",
+	"FriendlyName": "FormScribe",
 	"Description": "",
 	"Category": "Other",
 	"CreatedBy": "",
 	"CreatedByURL": "",
 	"DocsURL": "",
 	"MarketplaceURL": "",
+	"SupportURL": "",
 	"CanContainContent": true,
 	"IsBetaVersion": false,
 	"IsExperimentalVersion": false,
 	"Installed": false,
 	"Modules": [
 		{
-			"Name": "CurveScribe",
+			"Name": "FormScribe",
 			"Type": "Runtime",
 			"LoadingPhase": "Default"
 		},
 		{
-			"Name": "CurveScribeEditor",
+			"Name": "FormScribeEditor",
 			"Type": "Editor",
 			"LoadingPhase": "PostEngineInit"
 		}
-		]
+	]
 }
