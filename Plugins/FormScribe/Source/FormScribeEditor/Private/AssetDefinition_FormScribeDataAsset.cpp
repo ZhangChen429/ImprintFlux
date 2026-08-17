@@ -1,6 +1,7 @@
 #include "AssetDefinition_FormScribeDataAsset.h"
 
 #include "FormScribeDataAsset.h"
+#include "FormScribeDataAssetEditorToolkit.h"
 
 #define LOCTEXT_NAMESPACE "AssetDefinition_FormScribeDataAsset"
 
@@ -25,6 +26,21 @@ TConstArrayView<FAssetCategoryPath> UAssetDefinition_FormScribeDataAsset::GetAss
 		FAssetCategoryPath(LOCTEXT("FormScribeCategory", "FormScribe"))
 	};
 	return Categories;
+}
+
+EAssetCommandResult UAssetDefinition_FormScribeDataAsset::OpenAssets(const FAssetOpenArgs& OpenArgs) const
+{
+	for (UFormScribeDataAsset* Asset : OpenArgs.LoadObjects<UFormScribeDataAsset>())
+	{
+		if (Asset)
+		{
+			TSharedRef<FFormScribeDataAssetEditorToolkit> Toolkit =
+				MakeShared<FFormScribeDataAssetEditorToolkit>();
+			Toolkit->InitEditor(OpenArgs.GetToolkitMode(), OpenArgs.ToolkitHost, Asset);
+		}
+	}
+
+	return EAssetCommandResult::Handled;
 }
 
 #undef LOCTEXT_NAMESPACE

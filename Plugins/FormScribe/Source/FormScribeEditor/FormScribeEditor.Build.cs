@@ -21,6 +21,11 @@ public class FormScribeEditor : ModuleRules
 				"Engine",
 				"UnrealEd",
 				"AssetDefinition",
+				"AdvancedPreviewScene",
+				"PropertyEditor",
+				"Slate",
+				"SlateCore",
+				"InputCore",
 			}
 		);
 	}
