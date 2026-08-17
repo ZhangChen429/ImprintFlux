@@ -3,7 +3,7 @@
 #include "CurveScribe.h"
 
 
-#define LOCTEXT_NAMESPACE "FCurveScribeModule"
+#define LOCTEXT_NAMESPACE "FUEBlenderModule"
 
 void FCurveScribeModule::StartupModule()
 {
@@ -11,6 +11,7 @@ void FCurveScribeModule::StartupModule()
 
 void FCurveScribeModule::ShutdownModule()
 {
+	//Bridge.Shutdown();
 }
 
 #undef LOCTEXT_NAMESPACE

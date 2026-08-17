@@ -1,4 +1,4 @@
-﻿using UnrealBuildTool;
+using UnrealBuildTool;
 
 public class CurveScribeEditor : ModuleRules
 {
@@ -21,23 +21,25 @@ public class CurveScribeEditor : ModuleRules
                 "Engine",
                 "Slate",
                 "SlateCore",
-                "UnrealEd",              
-                "LevelEditor",           
-                "ToolMenus",           
-                "InputCore",            
+                "UnrealEd",
+                "LevelEditor",
+                "ToolMenus",
+                "InputCore",
                 "EditorStyle",
                 "PropertyEditor",
-                "Projects",              
-                "WorkspaceMenuStructure", "CurveScribe", "MeshConversion",
-                "SlateCore",
+                "Projects",
+                "WorkspaceMenuStructure",
+                "CurveScribe",
+                "MeshConversion",
                 "MeshDescription",
                 "StaticMeshDescription",
                 "GeometryCore",
                 "MeshUtilities",
-                "UnrealEd",
                 "Kismet",
                 "AssetDefinition",
-                "CurveEditor"
+                "CurveEditor",
+                "AdvancedPreviewScene",
+                "RenderCore"
             }
         );
     }

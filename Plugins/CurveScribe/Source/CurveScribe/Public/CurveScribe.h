@@ -3,6 +3,7 @@
 #pragma once
 
 #include "Modules/ModuleManager.h"
+#include "AlterMeshBridge.h"
 
 class FCurveScribeModule : public IModuleInterface
 {
@@ -15,4 +16,9 @@ public:
 		return FModuleManager::LoadModuleChecked<FCurveScribeModule>("CurveScribe");
 	}
 
+	// 获取桥接实例
+	FAlterMeshBridge& GetBridge() { return Bridge; }
+
+private:
+	FAlterMeshBridge Bridge;
 };
